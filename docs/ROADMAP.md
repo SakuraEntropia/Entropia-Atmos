@@ -283,23 +283,27 @@ Remaining for Phase 2 exit: differentiable PyTorch trainer (must beat the
   reference hardware.
 - TODO(Phase 3): native/GPU backends behind the existing contracts.
 
-### Phase 4 progress (v0.5.0)
+### Phase 4 progress (v0.5.1)
 
-- `apps/creator` — purpose-built spatial audio workstation UI (custom
-  React + zustand + three.js, no template dependency):
+- `apps/creator` — audio workstation functionality inside the UNCHANGED
+  template shell (Titlebar, WorkspaceTabs, PanelSlot area tree, splitters,
+  ToastStack from `entropia-template-ui`):
+  - the audio panels are registered through the template's own
+    `registerPanelContent` hook: scene graph → "nodes", 3D panner → "canvas",
+    contextual audio inspector → "inspector", transport + log → "status";
   - **3D Blender-style panner**: orbit/pan/zoom, click-select, drag
     emitters and listeners on a camera-facing plane, room shell, head
     orientation cone;
-  - audio panels: scene graph (emitters/listeners/materials/environments),
-    per-band material editor, contextual inspector (transform/kind/level/
-    yaw/temperature/humidity), simulation controls (solver/order/rays/late
-    field), transport (render → Web Audio binaural playback), log;
-  - the five ENTRO workspaces (Layout/Shading/Simulation/Bake/Delivery).
+  - audio tools: per-band material editor, emitter/listener/environment
+    editors, simulation controls (solver/order/rays/late field), Web Audio
+    binaural playback;
+  - the five ENTRO workspaces (Layout/Shading/Simulation/Bake/Delivery)
+    re-focus the scene-graph panel.
 - `apps/creator/server.ts` — dependency-free backend (`/api/document`,
   `/api/render` accepting inline edited documents, `/api/file` with path
   allow-list, `/api/audiogs`, `/api/export`); all endpoints smoke-tested.
-- The UI template submodule remains in the repository as the original
-  foundation and component library; the creator app is now self-contained.
+- The template repository itself is never modified (submodule stays at
+  its upstream commit).
 
 ### Phase 5 progress (v0.4.0)
 

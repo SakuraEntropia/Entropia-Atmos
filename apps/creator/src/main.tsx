@@ -1,5 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import "entropia-template-ui/style.css";
+import "@xyflow/react/dist/style.css";
 import { EntroApp } from "./EntroApp";
 import "./styles.css";
 
