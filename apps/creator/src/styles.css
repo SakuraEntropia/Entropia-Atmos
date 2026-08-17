@@ -132,32 +132,7 @@ body {
 .status-line { padding: 2px 0; color: #b8c4cf; font-size: 12px; }
 .status-time { color: #5c6773; margin-right: 8px; font-variant-numeric: tabular-nums; }
 
-/* menu bar (File/Edit/Render/Window/Help) */
-.menu-bar {
-  display: flex; align-items: center; gap: 2px;
-  padding: 4px 10px;
-  background: #1a1e24; border-bottom: 1px solid #262c34;
-  position: relative; z-index: 300;
-}
-.menu-brand { font-weight: 700; letter-spacing: 0.12em; color: #ff9d4d; margin-right: 14px; }
-.menu-root { position: relative; }
-.menu-title {
-  background: transparent; border: none; color: #c3cdd6;
-  padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12.5px;
-}
-.menu-title:hover, .menu-title.open { background: #232933; color: #ff9d4d; }
-.menu-overlay { position: fixed; inset: 0; z-index: 310; }
-.menu-dropdown {
-  position: absolute; top: calc(100% + 4px); left: 0; min-width: 240px;
-  background: #1d2229; border: 1px solid #2c3340; border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); padding: 4px; z-index: 320;
-}
-.menu-item {
-  display: flex; justify-content: space-between; align-items: center; width: 100%;
-  background: transparent; border: none; color: #c3cdd6; text-align: left;
-  padding: 6px 10px; border-radius: 5px; cursor: pointer; font-size: 12.5px;
-}
-.menu-item:hover { background: #2a3240; color: #ff9d4d; }
-.menu-shortcut { color: #5c6773; font-size: 11px; margin-left: 18px; }
-.menu-sep { height: 1px; background: #2c3340; margin: 4px 6px; }
-.menu-scene { margin-left: auto; color: #7a8694; font-size: 11.5px; }
+/* menu-bar tab active state (inside the template .menubar) */
+.workspace-tabs-wrap { margin-left: auto; }
+.workspace-tab.active { color: #ff9d4d; font-weight: 600; }
+.entro-dropdown-item { display: flex; justify-content: space-between; align-items: center; }

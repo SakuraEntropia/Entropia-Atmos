@@ -14,9 +14,9 @@
  * The five ENTRO workspaces (Bake/Layout/Shading/Simulation/Delivery)
  * re-focus the scene-graph panel on workspace-specific tools.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  WorkspaceTabs,
+  Titlebar,
   PanelSlot,
   VSplitter,
   HSplitter,
@@ -27,21 +27,13 @@ import {
   type AreaNode,
   type WorkspaceInstance,
 } from "entropia-template-ui";
-import { useCreatorStore, type WorkspaceId } from "./state/sceneStore";
+import { useCreatorStore } from "./state/sceneStore";
 import { Viewport3D } from "./components/Viewport3D";
 import { Inspector } from "./components/Inspector";
 import { ScenePanel } from "./components/ScenePanel";
 import { StatusPanel, BakePanel, DeliveryPanel } from "./components/StatusPanel";
 import { Transport } from "./components/Transport";
 import { MenuBar } from "./components/MenuBar";
-
-const WORKSPACES: { id: WorkspaceId; label: string }[] = [
-  { id: "layout", label: "Layout" },
-  { id: "shading", label: "Shading" },
-  { id: "simulation", label: "Simulation" },
-  { id: "bake", label: "Bake" },
-  { id: "delivery", label: "Delivery" },
-];
 
 /** Register the audio functionality into the template's panel registry.
  * (This is the supported extension point — the template shell is untouched.) */
@@ -85,18 +77,10 @@ function entroLayout(): AreaNode {
   return split("column", main, leaf("status"), 0.82);
 }
 
-let wsUid = 0;
-const newWsId = () => `entro_ws_${++wsUid}`;
-
 export function EntroApp() {
   const logLine = useCreatorStore((s) => s.logLine);
   const loadDocument = useCreatorStore((s) => s.loadDocument);
-  const setWorkspace = useCreatorStore((s) => s.setWorkspace);
-
-  const [workspaces, setWorkspaces] = useState<WorkspaceInstance[]>(() =>
-    WORKSPACES.map((preset) => ({ id: newWsId(), name: preset.label, root: entroLayout() }))
-  );
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [root, setRoot] = useState<AreaNode>(() => entroLayout());
 
   useEffect(() => {
     fetch("/api/document?name=shoebox")
@@ -112,39 +96,19 @@ export function EntroApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    const active = workspaces.find((w) => w.id === (activeId ?? workspaces[0]?.id));
-    if (active) setWorkspace(active.name.toLowerCase() as WorkspaceId);
-  }, [activeId, workspaces, setWorkspace]);
-
-  const effectiveId = activeId ?? workspaces[0]?.id ?? "";
-  const active = workspaces.find((w) => w.id === effectiveId) ?? workspaces[0];
-  const root = useMemo(() => active.root, [active]);
-
-  const updateActiveRoot = (fn: (r: AreaNode) => AreaNode) => {
-    setWorkspaces((ws) => ws.map((w) => (w.id === effectiveId ? { ...w, root: fn(w.root) } : w)));
-  };
+  const updateRoot = (fn: (r: AreaNode) => AreaNode) => setRoot(fn);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#14161a", color: "#d6dde4" }}>
+      <Titlebar />
       <MenuBar />
-      <WorkspaceTabs
-        workspaces={workspaces}
-        activeId={effectiveId}
-        onSwitch={setActiveId}
-        onAdd={() => undefined}
-        onRemove={() => undefined}
-        onRename={() => undefined}
-        onDuplicate={() => undefined}
-        onMove={() => undefined}
-      />
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
         <LayoutTree
           node={root}
-          onSplitRow={(id) => updateActiveRoot((r) => splitAt(r, id, "row"))}
-          onSplitColumn={(id) => updateActiveRoot((r) => splitAt(r, id, "column"))}
-          onMerge={(id) => updateActiveRoot((r) => mergeAt(r, id))}
-          onClose={(id) => updateActiveRoot((r) => closeAt(r, id))}
+          onSplitRow={(id) => updateRoot((r) => splitAt(r, id, "row"))}
+          onSplitColumn={(id) => updateRoot((r) => splitAt(r, id, "column"))}
+          onMerge={(id) => updateRoot((r) => mergeAt(r, id))}
+          onClose={(id) => updateRoot((r) => closeAt(r, id))}
         />
       </div>
       <ToastStack />

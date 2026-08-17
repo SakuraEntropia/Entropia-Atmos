@@ -1,10 +1,12 @@
-/** ENTRO ATMOS menu bar — File / Edit / Render / Window / Help.
+/** ENTRO ATMOS menu bar — File / Edit / Render / Window / Help plus the
+ * ENTRO workspace tabs, all in ONE bar, mirroring the original template
+ * UI (which renders its menus and workspace tabs inside a single
+ * `.menubar` below the Titlebar).
  *
- * All file operations (model import, scene import, save, binaural export)
- * live under File, Blender-style. The bar replaces the template Titlebar in
- * the creator chrome; the template shell panels are untouched.
+ * File operations (model import, scene import, save, binaural export) all
+ * live under File, Blender-style.
  */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   addPrim,
   bakeField,
@@ -33,11 +35,18 @@ const WORKSPACES: { id: WorkspaceId; label: string }[] = [
 ];
 
 export function MenuBar() {
-  const [open, setOpen] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
   const modelInput = useRef<HTMLInputElement>(null);
   const sceneInput = useRef<HTMLInputElement>(null);
+  const workspace = useCreatorStore((s) => s.workspace);
   const setWorkspace = useCreatorStore((s) => s.setWorkspace);
   const resetViewport = useCreatorStore((s) => s.resetViewport);
+
+  useEffect(() => {
+    const close = () => setOpenMenu(null);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, []);
 
   const menus: { label: string; items: MenuItem[] }[] = [
     {
@@ -86,7 +95,7 @@ export function MenuBar() {
   ];
 
   return (
-    <header className="menu-bar">
+    <div className="menubar" onClick={(e) => e.stopPropagation()}>
       <input
         ref={modelInput}
         type="file"
@@ -109,42 +118,49 @@ export function MenuBar() {
           e.target.value = "";
         }}
       />
-      <span className="menu-brand">ENTRO ATMOS</span>
       {menus.map((menu) => (
-        <div key={menu.label} className="menu-root">
-          <button
-            className={`menu-title ${open === menu.label ? "open" : ""}`}
-            onClick={() => setOpen(open === menu.label ? null : menu.label)}
-          >
-            {menu.label}
-          </button>
-          {open === menu.label && (
-            <>
-              <div className="menu-overlay" onClick={() => setOpen(null)} />
-              <div className="menu-dropdown">
-                {menu.items.map((item, i) =>
-                  item.separator ? (
-                    <div key={i} className="menu-sep" />
-                  ) : (
-                    <button
-                      key={i}
-                      className="menu-item"
-                      onClick={() => {
-                        setOpen(null);
-                        item.action?.();
-                      }}
-                    >
-                      <span>{item.label}</span>
-                      {item.shortcut && <span className="menu-shortcut">{item.shortcut}</span>}
-                    </button>
-                  )
-                )}
-              </div>
-            </>
+        <div
+          key={menu.label}
+          className={`menu-item ${openMenu === menu.label ? "active" : ""}`}
+          onClick={() => setOpenMenu(openMenu === menu.label ? null : menu.label)}
+        >
+          {menu.label}
+          {openMenu === menu.label && (
+            <div className="dropdown" onClick={(e) => e.stopPropagation()}>
+              {menu.items.map((item, i) =>
+                item.separator ? (
+                  <div key={i} style={{ height: 1, background: "var(--color-border)", margin: "4px 8px" }} />
+                ) : (
+                  <div
+                    key={i}
+                    className="dropdown-item entro-dropdown-item"
+                    onClick={() => {
+                      setOpenMenu(null);
+                      item.action?.();
+                    }}
+                  >
+                    <span>{item.label}</span>
+                    {item.shortcut && <span style={{ float: "right", opacity: 0.55, fontSize: 11 }}>{item.shortcut}</span>}
+                  </div>
+                )
+              )}
+            </div>
           )}
         </div>
       ))}
-      <span className="menu-scene">scene: {useCreatorStore((s) => s.document?.name) ?? "—"}</span>
-    </header>
+      <div className="workspace-tabs-wrap">
+        <div className="workspace-tabs">
+          {WORKSPACES.map((ws) => (
+            <button
+              key={ws.id}
+              className={`workspace-tab ${workspace === ws.id ? "active" : ""}`}
+              onClick={() => setWorkspace(ws.id)}
+            >
+              {ws.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
