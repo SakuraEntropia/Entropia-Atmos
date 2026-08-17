@@ -200,11 +200,11 @@ Audio-USD scene.
 | Phase | State | Current focus |
 |---|---|---|
 | 0 — Research Prototype | Active (background) | literature review, benchmark reference IRs |
-| 1 — MVP Renderer | **In progress** | offline MVP renderer shipped (v0.1.0); next: ray tracer for general geometry, per-band materials |
-| 2 — AudioGS | **In progress** | analytic field pipeline shipped (v0.2.0); next: differentiable trainer, energy-conserving calibration |
-| 3 — Real-Time | Not started | blocked on Phase 2 LOD streaming |
-| 4 — Creator App | Not started | template adopted, blocked on Phase 3 core |
-| 5 — Ecosystem | Not started | blocked on Phase 4 app + Phase 3 latency |
+| 1 — MVP Renderer | **Complete** | exit criteria met: benchmark harness (0.44 dB ray vs image-source), general-geometry ray tracer, per-band materials |
+| 2 — AudioGS | **In progress** | 0003 calibration (0.32 dB probe error), 0004 per-band splats done; 0002 differentiable trainer running |
+| 3 — Real-Time Engine | **Implemented (TS core)** | streaming convolution, IR crossfade, LOD streaming, 41.7× headroom benchmark; native/GPU TODO |
+| 4 — Creator App | **Implemented** | apps/creator (ENTRO workspaces + backend API), built and smoke-tested |
+| 5 — Ecosystem | **Implemented (contracts + tooling)** | ScenePlugin + host simulator + packaging + native build specs; real VST3/AU binaries need the SDK |
 
 ### Phase 1 progress (v0.1.0)
 
@@ -248,6 +248,46 @@ Implemented and tested (43 unit tests):
 Remaining for Phase 2 exit: differentiable PyTorch trainer (must beat the
 0001 baseline), microphone-array ingestion, energy-conserving calibration
 (0003), per-band splat rendering (0004).
+
+### Phase 1 wrap-up (v0.3.0)
+
+- `core/dsp/bands` — 4th-order Butterworth octave-band bank; image-source
+  and ray paths carry per-band gains (material bands × ISO 9613-1 per band)
+  baked into band-shaped path FIRs.
+- `formats/obj` + `RayTracingSolver` — SBR specular ray tracing on triangle
+  meshes (Möller–Trumbore, DOA-clustered capture); cross-validated against
+  image-source: 0.44 dB DIR energy delta, identical direct gain.
+- `tools/benchmark` + `npm run bench` — SPEC M-05 comparison harness.
+
+### Phase 3 progress (v0.4.0)
+
+- `core/dsp/realtime` — uniformly partitioned overlap-save
+  `StreamingConvolver` (one-block latency), `RealtimeBinauralRenderer` with
+  scene-IR crossfade on listener moves, `buildSceneIr` bake.
+- `tools/dataset/streaming` — manifest-driven LOD selection + streamer.
+- `npm run bench-rt` — 41.7× real-time headroom at 512 samples/48 kHz on
+  reference hardware.
+- TODO(Phase 3): native/GPU backends behind the existing contracts.
+
+### Phase 4 progress (v0.4.0)
+
+- `apps/creator` — Vite app extending the template component library with
+  the five ENTRO workspaces, an ENTRO inspector panel (template's
+  `registerPanelContent` hook), and acoustic node definitions.
+- `apps/creator/server.ts` — dependency-free backend (`/api/status`,
+  `/api/nodes`, `/api/scene/load`, `/api/render`, `/api/audiogs`,
+  `/api/export`) driving the engine core; all endpoints smoke-tested.
+
+### Phase 5 progress (v0.4.0)
+
+- `src/plugins/vst/scenePlugin` — reference `VstBridge` implementation on
+  the Phase 3 realtime renderer (automation: `master_gain`).
+- `src/plugins/vst/hostSimulator` — DAW-style block sessions with
+  automation, suspend/resume, and real-time budget verification.
+- `src/plugins/packaging` + `npm run pack` — content-pack manifests +
+  validation; starter pack in `examples/packs/entropia-starter`.
+- Native build specs (`vst/native`, `au/native`) with CMake skeleton;
+  actual VST3/AU binaries require the respective SDKs (documented TODO).
 
 > Phases are gated by exit criteria, not by dates. Dates are added only when a
 > phase exits; see the experiment log for progress evidence.

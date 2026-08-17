@@ -154,11 +154,10 @@ cd Entropia-Template-UI_atmos && npm install && npm run dev
 
 ## Status
 
-**Phase 2 — AudioGS Integration (in progress).** The analytic field
-pipeline is implemented and measured: SH voxelization + Gaussian splats +
-band-truncation LODs rendering through the unchanged Phase 1 renderer
-(baseline in experiment 0001). Remaining: the differentiable PyTorch
-trainer (which must beat the baseline), microphone-array ingestion, and
-energy-conserving calibration. See the
-[status board](./ROADMAP.md#status-board) and the
-[roadmap](./ROADMAP.md) for what comes next.
+**Phases 1–5 implemented (v0.4.0).** Offline + real-time renderers, AudioGS
+splat fields with calibrated, measured LODs, the creator application, and
+plugin tooling are all in the repository with 71 passing tests. Remaining
+research TODOs: the differentiable trainer result (experiment 0002),
+microphone-array ingestion, native VST3/AU binaries (SDK-dependent), and
+GPU backends. See the [status board](./ROADMAP.md#status-board) for the
+per-phase detail.

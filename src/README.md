@@ -44,24 +44,33 @@ or an explicit **TODO**. Nothing pretends to work.
 |---|---|
 | `core/audio_scene` | Contracts + structural validation (implemented) |
 | `core/sh` | SH basis, weighted LS projection, truncation, error metric (implemented) |
-| `core/acoustic_engine` | Image-source + splat-field solvers, FDN reverb, air absorption (implemented); ray tracer/GPU TODO |
-| `core/dsp` | FFT overlap-add convolution, node library, graph scheduling (implemented); real-time scheduling TODO (Phase 3) |
+| `core/acoustic_engine` | Image-source + splat-field + ray-tracing solvers, FDN reverb, per-band paths (implemented); wave solvers/GPU TODO |
+| `core/dsp` | FFT convolution, band bank, node library, graph scheduling, realtime streaming convolver + block renderer (implemented) |
 | `core/renderer` | Offline binaural renderer, parametric + JSON HRTF (implemented); Acoustic-BRDF/GPU TODO |
-| `formats/audio_usd` | v0.2 schema, JSON parse/serialize, `toAudioScene` mapping incl. splatField (implemented) |
-| `formats/wav` | PCM/float32 read/write (implemented) |
-| `tools/dataset` | Field sampling, SH voxelization, splat projection, LOD compression, manifest (implemented); microphone ingestion + PyTorch trainer TODO |
+| `formats/audio_usd` | v0.2 schema, JSON parse/serialize, `toAudioScene` incl. splatField (implemented) |
+| `formats/wav` + `formats/obj` | PCM/float32 read/write; Wavefront OBJ (implemented) |
+| `tools/dataset` | Field sampling, SH voxelization, splat projection, calibration, LOD compression + streaming, manifest (implemented); mic ingestion + trainer TODO |
 | `tools/converter` | Registry + splat-field ↔ Audio-USD converter (implemented) |
-| `tools/cli` | `render` + `audiogs` headless CLIs (implemented) |
-| `plugins/*` | Contracts only (Phase 5) |
+| `tools/benchmark` | DIR/render metrics + comparisons (implemented) |
+| `tools/cli` | `render` / `audiogs` / `bench` / `bench-rt` / `pack` (implemented) |
+| `plugins/*` | ScenePlugin (VstBridge reference), DAW host simulator, packaging (implemented); native VST3/AU shells need SDKs |
+| `apps/creator` | ENTRO workspaces + backend API (Phase 4, built) |
 
 ## Checks & usage
 
 ```bash
 npm run typecheck   # strict TypeScript across all contracts and implementations
-npm test            # vitest: 43 tests (formats, FFT, DSP, SH, solvers, HRTF, pipelines)
+npm test            # vitest: 71 tests (formats, FFT, DSP, SH, solvers, pipelines, plugins)
 npm run render -- examples/shoebox.audio_usd.json --impulse --out out.wav
 npm run audiogs -- examples/shoebox.audio_usd.json --grid 5 --bands 4 --out examples/shoebox.splats
 npm run render -- examples/shoebox.splats.audio_usd.json --solver splat-field --impulse --duration 0 --out out.wav
+npm run bench -- examples/shoebox.audio_usd.json --a image-source --b ray-tracing --mesh box=examples/shoebox.obj
+npm run bench-rt -- examples/shoebox.audio_usd.json
+npm run pack -- --out examples/packs/entropia-starter --scene examples/shoebox.audio_usd.json
+
+# Creator application (Phase 4)
+cd apps/creator && npm install && npm run server   # backend on :8100
+# in another shell: npm run dev                      # UI on :5174 (proxies /api)
 ```
 
 Implemented code is honest and testable; everything else remains an

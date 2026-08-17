@@ -5,9 +5,10 @@ AI + Graphics Inspired Spatial Audio Engine
 > **"Blender for spatial audio."** Represent → simulate → shade → render →
 > deliver, the way modern graphics pipelines produce images.
 
-**Status:** Phase 2 — AudioGS field pipeline working headless (splat sound
-fields render through the Phase 1 renderer; measured baseline in
-[experiment 0001](./src/research/experiments/0001-audiogs-field-reconstruction/EXPERIMENT.md)).
+**Status:** Phases 1–5 implemented (v0.4.0): offline + real-time renderers
+(41.7× headroom), AudioGS splat fields with measured LODs, creator
+application, plugin tooling. Measured baselines live in
+[`src/research/experiments/`](./src/research/experiments/).
 Docs: [docs/](./docs/) · Roadmap: [docs/ROADMAP.md](./docs/ROADMAP.md)
 
 ## Introduction
@@ -45,15 +46,20 @@ cd entropia-atmos
 npm install
 npm run typecheck
 npm test
-# Phase 1: geometry acoustics render
+# Phase 1: geometric acoustics render
 npm run render -- examples/shoebox.audio_usd.json --impulse --out out.wav
 # Phase 2: build an AudioGS splat field and render it
 npm run audiogs -- examples/shoebox.audio_usd.json --grid 5 --bands 4 --out examples/shoebox.splats
 npm run render -- examples/shoebox.splats.audio_usd.json --solver splat-field --impulse --duration 0 --out out.wav
+# Phase 3: real-time latency benchmark
+npm run bench-rt -- examples/shoebox.audio_usd.json
+# Phase 4: creator application (backend + UI)
+cd apps/creator && npm install && npm run server   # then: npm run dev
 ```
 
-Renders the 5×4×3 m shoebox example (image-source early reflections + FDN
-late reverberation, or an AudioGS splat sound field) to a binaural WAV.
+Renders the 5×4×3 m shoebox example (image-source / ray-tracing / AudioGS
+solvers, FDN late reverberation, HRTF binaural output) to a WAV, measures
+real-time headroom, and serves the creator UI.
 
 ## Repository layout
 
@@ -62,18 +68,18 @@ docs/                       SPEC, ARCHITECTURE, ROADMAP, developer intro
 src/
 ├── core/
 │   ├── audio_scene/        scene model: emitter, listener, material, environment, splats
-│   ├── acoustic_engine/    image-source + splat-field solvers, FDN reverb, DIRs
-│   ├── renderer/           Acoustic-BRDF, HRTF (parametric + JSON), binaural
-│   ├── dsp/                FFT convolution, node graph, block processing
+│   ├── acoustic_engine/    image-source + ray-tracing + splat-field solvers, FDN reverb, DIRs
+│   ├── renderer/           Acoustic-BRDF, HRTF (parametric + JSON), binaural (offline)
+│   ├── dsp/                FFT, band bank, node graph, realtime streaming convolution
 │   └── sh/                 spherical harmonics: basis, projection, compression
-├── formats/audio_usd/      Audio-USD v0 schema, JSON reader/writer
-├── formats/wav/            PCM 8/16/24/32 + float32 read/write
-├── plugins/                VST3 / AU host bridge contracts (Phase 5)
-├── tools/                  dataset (AudioGS), converter, headless render CLI
-└── research/               papers reading list, experiment log
-examples/                   runnable Audio-USD scenes
+├── formats/                audio_usd (v0.2) · wav · obj
+├── plugins/                VstBridge/AuBridge, ScenePlugin, DAW host simulator, packaging
+├── tools/                  dataset (AudioGS) · converter · benchmark · headless CLIs
+├── research/               papers reading list, experiment log (measured numbers)
+apps/creator/               Phase 4 creator application (ENTRO workspaces + backend)
+examples/                   runnable scenes, meshes, content packs
 Entropia-Template-UI_atmos/ UI shell submodule (React + Vite + React Flow),
-                            adopted as the Application Layer in Phase 4
+                            adopted as the Application Layer
 ```
 
 Full architecture and dependency rules: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).

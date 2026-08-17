@@ -42,7 +42,7 @@ Fill every section — a section that does not apply is written as
 
 | Experiment | Question | Status |
 |---|---|---|
-| [0001-audiogs-field-reconstruction](./0001-audiogs-field-reconstruction/EXPERIMENT.md) | Can the analytic AudioGS projection reconstruct the shoebox field? What are the LOD errors? | done — energy within 1–4.7 dB of reference; LOD errors −8.4/−10.2/−12.0 dB |
-| 0002 | Differentiable AudioGS trainer must beat the 0001 baseline | allocated |
-| 0003 | Energy-conserving splat calibration (opacity fit, SH regularization) | allocated |
-| 0004 | Per-band splat rendering | allocated |
+| [0001-audiogs-field-reconstruction](./0001-audiogs-field-reconstruction/EXPERIMENT.md) | Can the analytic AudioGS projection reconstruct the shoebox field? What are the LOD errors? | done — LOD errors −8.4/−10.2/−12.0 dB; superseded by 0003 calibration |
+| 0002-differentiable-audiogs | Differentiable AudioGS trainer must beat the 0001/0003 baseline | running (PyTorch) |
+| [0003-energy-conserving-calibration](./0003-energy-conserving-calibration/EXPERIMENT.md) | Does per-splat opacity LS calibration conserve field energy? | done — 8.30 → 0.32 dB probe error; listener within 0.29 dB of reference |
+| 0004 | Per-band splat rendering (implemented; listener-energy recombination open) | done (implementation) — see 0003 analysis |
