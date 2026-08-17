@@ -205,6 +205,18 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       res.end(data);
       return;
     }
+    if (req.method === "POST" && url.pathname === "/api/save") {
+      const body = await readBody(req);
+      const name = String(body.name ?? "scene");
+      if (!/^[a-zA-Z0-9._-]+$/.test(name)) throw new Error(`invalid scene name '${name}'`);
+      const document = body.document ?? {};
+      // Validate by round-tripping through the format module.
+      toAudioScene(parseAudioUsd(typeof document === "string" ? document : JSON.stringify(document)));
+      const path = join(EXAMPLES, `${name}.audio_usd.json`);
+      writeFileSync(path, JSON.stringify(document, null, 2) + "\n");
+      sendJson(res, 200, { ok: true, path, message: `saved ${name}.audio_usd.json` });
+      return;
+    }
     if (req.method === "POST" && url.pathname === "/api/render") {
       const body = (await readBody(req)) as unknown as RenderBody;
       const result = await handleRender(body);

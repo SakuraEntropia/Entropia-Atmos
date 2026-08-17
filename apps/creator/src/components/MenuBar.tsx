@@ -7,6 +7,7 @@
  * live under File, Blender-style.
  */
 import { useEffect, useRef, useState } from "react";
+import { WorkspaceTabs, type WorkspaceInstance, type WorkspacePreset } from "entropia-template-ui";
 import {
   addPrim,
   bakeField,
@@ -34,11 +35,23 @@ const WORKSPACES: { id: WorkspaceId; label: string }[] = [
   { id: "delivery", label: "Delivery" },
 ];
 
-export function MenuBar() {
+export interface MenuBarProps {
+  workspaces: WorkspaceInstance[];
+  activeId: string;
+  presets: WorkspacePreset[];
+  onSwitch: (id: string) => void;
+  onAdd: (presetId: string) => void;
+  onRemove: (id: string) => void;
+  onRename: (id: string, name: string) => void;
+  onDuplicate: (id: string) => void;
+  onMove: (id: string, delta: number) => void;
+  onReorder: (id: string, targetId: string) => void;
+}
+
+export function MenuBar(props: MenuBarProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const modelInput = useRef<HTMLInputElement>(null);
   const sceneInput = useRef<HTMLInputElement>(null);
-  const workspace = useCreatorStore((s) => s.workspace);
   const setWorkspace = useCreatorStore((s) => s.setWorkspace);
   const resetViewport = useCreatorStore((s) => s.resetViewport);
 
@@ -148,18 +161,23 @@ export function MenuBar() {
           )}
         </div>
       ))}
-      <div className="workspace-tabs-wrap">
-        <div className="workspace-tabs">
-          {WORKSPACES.map((ws) => (
-            <button
-              key={ws.id}
-              className={`workspace-tab ${workspace === ws.id ? "active" : ""}`}
-              onClick={() => setWorkspace(ws.id)}
-            >
-              {ws.label}
-            </button>
-          ))}
-        </div>
+      <div className="workspace-tabs-wrap" style={{ marginLeft: "auto" }}>
+        <WorkspaceTabs
+          workspaces={props.workspaces}
+          activeId={props.activeId}
+          presets={props.presets}
+          onSwitch={(id) => {
+            props.onSwitch(id);
+            const instance = props.workspaces.find((w) => w.id === id);
+            if (instance) setWorkspace(instance.name.toLowerCase() as WorkspaceId);
+          }}
+          onAdd={props.onAdd}
+          onRemove={props.onRemove}
+          onRename={props.onRename}
+          onDuplicate={props.onDuplicate}
+          onMove={props.onMove}
+          onReorder={props.onReorder}
+        />
       </div>
     </div>
   );

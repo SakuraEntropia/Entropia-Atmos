@@ -1,6 +1,8 @@
 /** Creator state (zustand): the Audio-USD document under edit, selection,
  * workspace mode, and the render/transport session. */
 import { create } from "zustand";
+import { useGraphStore } from "entropia-template-ui";
+import type { Node, Edge } from "@xyflow/react";
 
 export interface Vec3Like {
   x: number;
@@ -34,6 +36,13 @@ export interface LogEntry {
   text: string;
 }
 
+export interface AcousticNodeData extends Record<string, unknown> {
+  id?: string;
+  nodeType: string;
+  label: string;
+  params: Record<string, number>;
+}
+
 interface CreatorState {
   document: AudioUsdDocumentLike | null;
   selection: Selection;
@@ -61,6 +70,13 @@ interface CreatorState {
   /** Ask the 3D viewport to reset its camera. */
   viewportReset: number;
   resetViewport(): void;
+  /** Unsaved-changes flag (mirrored into the template titlebar). */
+  dirty: boolean;
+  markDirty(): void;
+  markSaved(name: string): void;
+  /** Per-material acoustic node graphs (Blender-style node editor). */
+  graphs: Record<string, { nodes: Node<AcousticNodeData>[]; edges: Edge[] }>;
+  setGraph(materialId: string, graph: { nodes: Node<AcousticNodeData>[]; edges: Edge[] }): void;
 }
 
 function stamp(): string {
@@ -107,11 +123,19 @@ export const useCreatorStore = create<CreatorState>((set, get) => ({
   setMaxOrder: (maxOrder) => set({ maxOrder }),
   setRayBudget: (rayBudget) => set({ rayBudget }),
   setLateDuration: (lateDuration) => set({ lateDuration }),
-  logLine: (text) => set((s) => ({ log: [...s.log.slice(-199), { time: stamp(), text }] })),
-  setRenderStatus: (renderStatus, renderedWavPath) =>
-    set((s) => ({ renderStatus, renderedWavPath: renderedWavPath ?? s.renderedWavPath })),
-  updatePayload: (type, id, updater) =>
-    set((s) => ({ document: editDocument(s.document, type, id, updater) })),
+  logLine: (text) => {
+    useGraphStore.setState({ logs: [...useGraphStore.getState().logs.slice(-199), text] });
+    set((s) => ({ log: [...s.log.slice(-199), { time: stamp(), text }] }));
+  },
+  setRenderStatus: (renderStatus, renderedWavPath) => {
+    const templateStatus = renderStatus === "rendering" ? "running" : renderStatus === "ready" ? "success" : renderStatus;
+    useGraphStore.setState({ status: templateStatus });
+    set((s) => ({ renderStatus, renderedWavPath: renderedWavPath ?? s.renderedWavPath }));
+  },
+  updatePayload: (type, id, updater) => {
+    useGraphStore.setState({ dirty: true });
+    set((s) => ({ document: editDocument(s.document, type, id, updater), dirty: true }));
+  },
   deleteSelection: () =>
     set((s) => {
       if (!s.document || !s.selection) return {};
@@ -121,10 +145,22 @@ export const useCreatorStore = create<CreatorState>((set, get) => ({
           (prim) => !(prim.type === s.selection!.type && prim.id === s.selection!.id)
         ),
       }));
-      return { document: { ...s.document, layers }, selection: null };
+      useGraphStore.setState({ dirty: true });
+      return { document: { ...s.document, layers }, selection: null, dirty: true };
     }),
   viewportReset: 0,
   resetViewport: () => set((s) => ({ viewportReset: s.viewportReset + 1 })),
+  dirty: false,
+  markDirty: () => {
+    useGraphStore.setState({ dirty: true });
+    set({ dirty: true });
+  },
+  markSaved: (name) => {
+    useGraphStore.setState({ dirty: false, activeFileName: `${name}.audio_usd` });
+    set({ dirty: false });
+  },
+  graphs: {},
+  setGraph: (materialId, graph) => set((s) => ({ graphs: { ...s.graphs, [materialId]: graph } })),
 }));
 
 /** Selection helpers for components. */

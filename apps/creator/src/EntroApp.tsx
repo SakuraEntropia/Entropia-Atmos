@@ -25,15 +25,19 @@ import {
   split,
   registerPanelContent,
   setPanelTypeVisibility,
+  StatusPanel,
   type AreaNode,
+  type WorkspaceInstance,
 } from "entropia-template-ui";
 import { useCreatorStore } from "./state/sceneStore";
 import { Viewport3D } from "./components/Viewport3D";
 import { Inspector } from "./components/Inspector";
 import { ScenePanel } from "./components/ScenePanel";
-import { StatusPanel, BakePanel, DeliveryPanel } from "./components/StatusPanel";
+import { BakePanel, DeliveryPanel } from "./components/StatusPanel";
 import { Transport } from "./components/Transport";
 import { MenuBar } from "./components/MenuBar";
+import { NodeEditor } from "./components/NodeEditor";
+import { ENTRO_PRESETS } from "./workspaces";
 
 /** Register the audio functionality into the template's panel registry.
  * (This is the supported extension point — the template shell is untouched.) */
@@ -41,9 +45,10 @@ registerPanelContent("canvas", () => <Viewport3D />);
 registerPanelContent("inspector", () => <Inspector />);
 registerPanelContent("nodes", () => <LeftWorkspacePanel />);
 registerPanelContent("status", () => <StatusBar />);
-// Delete every legacy template panel from the UI: only the four audio
-// panels remain in the panel-type dropdown.
-setPanelTypeVisibility(["nodes", "canvas", "inspector", "status"]);
+registerPanelContent("shader", () => <NodeEditor />);
+// Delete every legacy template panel from the UI: only the audio panels
+// remain in the panel-type dropdown.
+setPanelTypeVisibility(["nodes", "canvas", "inspector", "status", "shader"]);
 
 function LeftWorkspacePanel() {
   const workspace = useCreatorStore((s) => s.workspace);
@@ -65,17 +70,72 @@ function StatusBar() {
   );
 }
 
-function entroLayout(): AreaNode {
-  const left = split("column", leaf("nodes"), leaf("inspector"), 0.62);
-  const main = split("row", left, leaf("canvas"), 0.26);
-  return split("column", main, leaf("status"), 0.82);
-}
-
 export function EntroApp() {
   const document = useCreatorStore((s) => s.document);
   const logLine = useCreatorStore((s) => s.logLine);
   const loadDocument = useCreatorStore((s) => s.loadDocument);
-  const [root, setRoot] = useState<AreaNode>(() => entroLayout());
+  const [workspaces, setWorkspaces] = useState<WorkspaceInstance[]>(() =>
+    ENTRO_PRESETS.map((preset) => ({ id: newWsId(), name: preset.label, root: preset.build() }))
+  );
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const effectiveId = activeId ?? workspaces[0]?.id ?? "";
+  const active = workspaces.find((w) => w.id === effectiveId) ?? workspaces[0];
+  const root = active.root;
+
+  const updateActiveRoot = (fn: (r: AreaNode) => AreaNode) => {
+    setWorkspaces((ws) => ws.map((w) => (w.id === effectiveId ? { ...w, root: fn(w.root) } : w)));
+  };
+  const addWorkspace = (presetId: string) => {
+    const preset = ENTRO_PRESETS.find((p) => p.id === presetId);
+    if (!preset) return;
+    const ws: WorkspaceInstance = { id: newWsId(), name: preset.label, root: preset.build() };
+    setWorkspaces((w) => [...w, ws]);
+    setActiveId(ws.id);
+  };
+  const removeWorkspace = (id: string) => {
+    setWorkspaces((ws) => {
+      if (ws.length <= 1) return ws;
+      const next = ws.filter((w) => w.id !== id);
+      if (id === effectiveId) setActiveId(next[0].id);
+      return next;
+    });
+  };
+  const renameWorkspace = (id: string, name: string) => {
+    setWorkspaces((ws) => ws.map((w) => (w.id === id ? { ...w, name } : w)));
+  };
+  const duplicateWorkspace = (id: string) => {
+    const source = workspaces.find((w) => w.id === id);
+    if (!source) return;
+    const copy: WorkspaceInstance = { id: newWsId(), name: `${source.name} copy`, root: JSON.parse(JSON.stringify(source.root)) };
+    const index = workspaces.findIndex((w) => w.id === id);
+    const next = [...workspaces];
+    next.splice(index + 1, 0, copy);
+    setWorkspaces(next);
+    setActiveId(copy.id);
+  };
+  const moveWorkspace = (id: string, delta: number) => {
+    setWorkspaces((ws) => {
+      const index = ws.findIndex((w) => w.id === id);
+      const target = index + delta;
+      if (index < 0 || target < 0 || target >= ws.length) return ws;
+      const next = [...ws];
+      const [item] = next.splice(index, 1);
+      next.splice(target, 0, item);
+      return next;
+    });
+  };
+  const reorderWorkspace = (id: string, targetId: string) => {
+    setWorkspaces((ws) => {
+      const from = ws.findIndex((w) => w.id === id);
+      const to = ws.findIndex((w) => w.id === targetId);
+      if (from < 0 || to < 0 || from === to) return ws;
+      const next = [...ws];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  };
 
   useEffect(() => {
     fetch("/api/document?name=shoebox")
@@ -91,19 +151,28 @@ export function EntroApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const updateRoot = (fn: (r: AreaNode) => AreaNode) => setRoot(fn);
-
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#14161a", color: "#d6dde4" }}>
       <Titlebar title={document?.name ? `${document.name}.audio_usd` : undefined} appName="ENTRO ATMOS" />
-      <MenuBar />
+      <MenuBar
+        workspaces={workspaces}
+        activeId={effectiveId}
+        presets={ENTRO_PRESETS}
+        onSwitch={setActiveId}
+        onAdd={addWorkspace}
+        onRemove={removeWorkspace}
+        onRename={renameWorkspace}
+        onDuplicate={duplicateWorkspace}
+        onMove={moveWorkspace}
+        onReorder={reorderWorkspace}
+      />
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
         <LayoutTree
           node={root}
-          onSplitRow={(id) => updateRoot((r) => splitAt(r, id, "row"))}
-          onSplitColumn={(id) => updateRoot((r) => splitAt(r, id, "column"))}
-          onMerge={(id) => updateRoot((r) => mergeAt(r, id))}
-          onClose={(id) => updateRoot((r) => closeAt(r, id))}
+          onSplitRow={(id) => updateActiveRoot((r) => splitAt(r, id, "row"))}
+          onSplitColumn={(id) => updateActiveRoot((r) => splitAt(r, id, "column"))}
+          onMerge={(id) => updateActiveRoot((r) => mergeAt(r, id))}
+          onClose={(id) => updateActiveRoot((r) => closeAt(r, id))}
         />
       </div>
       <ToastStack />
@@ -163,6 +232,9 @@ function LayoutTree({
   };
   return <div style={{ width: "100%", height: "100%" }}>{render(node)}</div>;
 }
+
+let wsUid = 0;
+const newWsId = () => `entro_ws_${++wsUid}`;
 
 // --- area-tree helpers (mirror the template's areas semantics) ----------------
 

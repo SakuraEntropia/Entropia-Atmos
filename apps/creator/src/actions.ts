@@ -108,14 +108,25 @@ export function deleteSelected(): void {
   useCreatorStore.getState().deleteSelection();
 }
 
-/** Save the current document as an Audio-USD JSON file. */
-export function saveScene(): void {
+/** Save the current document to the backend (rikos-style file save:
+ * persists to examples/<name>.audio_usd.json and clears the dirty flag). */
+export async function saveScene(): Promise<void> {
   const state = useCreatorStore.getState();
   const document = doc();
   if (!document) return;
-  const blob = new Blob([JSON.stringify(document, null, 2)], { type: "application/json" });
-  download(`${document.name ?? "scene"}.audio_usd.json`, blob);
-  state.logLine(`saved '${document.name ?? "scene"}.audio_usd.json'`);
+  try {
+    const resp = await fetch("/api/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: document.name ?? "scene", document }),
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    const data = (await resp.json()) as { path: string };
+    useCreatorStore.getState().markSaved(document.name ?? "scene");
+    state.logLine(`saved → ${data.path}`);
+  } catch (error) {
+    state.logLine(`save failed: ${error instanceof Error ? error.message : error}`);
+  }
 }
 
 /** Render the current document to a binaural WAV; returns the server path. */

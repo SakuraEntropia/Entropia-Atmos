@@ -136,3 +136,25 @@ body {
 .workspace-tabs-wrap { margin-left: auto; }
 .workspace-tab.active { color: #ff9d4d; font-weight: 600; }
 .entro-dropdown-item { display: flex; justify-content: space-between; align-items: center; }
+
+/* acoustic node editor */
+.node-editor { display: flex; flex-direction: column; height: 100%; }
+.node-toolbar { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-bottom: 1px solid #262c34; }
+.node-editor-body { flex: 1; min-height: 0; display: flex; }
+.node-palette { width: 150px; min-width: 120px; overflow-y: auto; border-right: 1px solid #262c34; padding: 6px; }
+.node-palette-cat { font-weight: 600; font-size: 11px; letter-spacing: 0.06em; color: #8a97a3; margin: 8px 2px 4px; }
+.node-palette-item { display: block; width: 100%; text-align: left; background: #1d2229; color: #c3cdd6; border: 1px solid #2c3340; border-radius: 5px; padding: 4px 8px; margin-bottom: 4px; cursor: pointer; font-size: 12px; }
+.node-palette-item:hover:not(:disabled) { border-color: #ff9d4d; color: #ff9d4d; }
+.node-palette-item:disabled { opacity: 0.4; cursor: default; }
+.node-canvas { flex: 1; min-width: 0; }
+.anode { background: #1a1f26; border: 1px solid #2c3340; border-radius: 8px; padding: 6px 0; min-width: 170px; font-size: 12px; color: #c3cdd6; }
+.anode-title { font-weight: 600; padding: 2px 10px 6px; border-bottom: 1px solid #2c3340; color: #ff9d4d; margin-bottom: 4px; }
+.anode-socket { position: relative; display: flex; align-items: center; gap: 5px; padding: 2px 10px; }
+.anode-socket.out { justify-content: flex-end; }
+.anode-kind { font-size: 9px; color: #7a8694; border: 1px solid #2c3340; border-radius: 3px; padding: 0 4px; }
+.anode-kind.s { color: #9fd08a; } .anode-kind.v { color: #8ab4f8; } .anode-kind.i, .anode-kind.vd { color: #f2c46d; } .anode-kind.tc { color: #c9a1f5; }
+.anode-param { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 2px 10px; font-size: 11px; color: #9fb3c4; }
+.anode-param input { width: 62px; background: #101318; border: 1px solid #2c3340; color: #d6dde4; border-radius: 4px; padding: 2px 5px; }
+.anode-asset { margin: 4px 10px; background: #232933; border: 1px solid #2c3340; color: #d6dde4; border-radius: 4px; padding: 3px 8px; cursor: pointer; font-size: 11px; }
+.anode-asset:hover { border-color: #ff9d4d; }
+.anode-handle { width: 9px; height: 9px; background: #ff9d4d; border: 2px solid #14161a; }
