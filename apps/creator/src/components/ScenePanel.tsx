@@ -46,6 +46,9 @@ export function ScenePanel() {
   const selection = useCreatorStore((s) => s.selection);
   const select = useCreatorStore((s) => s.select);
   const logLine = useCreatorStore((s) => s.logLine);
+  const hiddenIds = useCreatorStore((s) => s.hiddenIds);
+  const toggleHidden = useCreatorStore((s) => s.toggleHidden);
+  const deleteSelection = useCreatorStore((s) => s.deleteSelection);
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (!document) {
@@ -126,7 +129,29 @@ export function ScenePanel() {
               className={`scene-item ${selection?.type === section.type && selection.id === prim.id ? "selected" : ""}`}
               onClick={() => select({ type: section.type, id: prim.id })}
             >
-              {prim.name}
+              <button
+                className="outliner-eye"
+                title={hiddenIds.includes(prim.id) ? "show in viewport" : "hide in viewport"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleHidden(prim.id);
+                }}
+              >
+                {hiddenIds.includes(prim.id) ? "◇" : "👁"}
+              </button>
+              <span className="scene-item-name">{prim.name}</span>
+              <button
+                className="outliner-x"
+                title="delete"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  select({ type: section.type, id: prim.id });
+                  deleteSelection();
+                  logLine(`deleted ${section.type} '${prim.id}'`);
+                }}
+              >
+                ✕
+              </button>
             </div>
           ))}
           {primsOf(section.type).length === 0 && <div className="scene-item muted">— empty —</div>}

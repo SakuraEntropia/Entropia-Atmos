@@ -1,4 +1,13 @@
-# ENTRO ATMOS
+<p align="center">
+  <img src="assets/brand/readme-logo.png" alt="ENTRO ATMOS logo" width="128" />
+</p>
+
+<h1 align="center">ENTRO ATMOS</h1>
+
+<p align="center">
+  <a href="https://github.com/SakuraEntropia/Entropia-Atmos"><img alt="GitHub repo" src="https://img.shields.io/badge/GitHub-Entropia--Atmos-blue.svg" /></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" /></a>
+</p>
 
 AI + Graphics Inspired Spatial Audio Engine
 

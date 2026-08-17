@@ -77,6 +77,12 @@ interface CreatorState {
   /** Per-material acoustic node graphs (Blender-style node editor). */
   graphs: Record<string, { nodes: Node<AcousticNodeData>[]; edges: Edge[] }>;
   setGraph(materialId: string, graph: { nodes: Node<AcousticNodeData>[]; edges: Edge[] }): void;
+  /** Splash screen visibility. */
+  splashOpen: boolean;
+  closeSplash(): void;
+  /** Outliner visibility toggles (prim ids hidden in the 3D view). */
+  hiddenIds: string[];
+  toggleHidden(id: string): void;
 }
 
 function stamp(): string {
@@ -161,6 +167,13 @@ export const useCreatorStore = create<CreatorState>((set, get) => ({
   },
   graphs: {},
   setGraph: (materialId, graph) => set((s) => ({ graphs: { ...s.graphs, [materialId]: graph } })),
+  splashOpen: true,
+  closeSplash: () => set({ splashOpen: false }),
+  hiddenIds: [],
+  toggleHidden: (id) =>
+    set((s) => ({
+      hiddenIds: s.hiddenIds.includes(id) ? s.hiddenIds.filter((h) => h !== id) : [...s.hiddenIds, id],
+    })),
 }));
 
 /** Selection helpers for components. */

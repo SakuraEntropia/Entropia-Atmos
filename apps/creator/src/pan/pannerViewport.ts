@@ -15,7 +15,8 @@ export interface DragTarget {
 
 export interface ViewportCallbacks {
   onSelect: (target: DragTarget | null) => void;
-  onDragEnd: (target: DragTarget, position: [number, number, number]) => void;
+  /** Committed after a drag: world position + quaternion [x,y,z,w]. */
+  onDragEnd: (target: DragTarget, position: [number, number, number], quaternion: [number, number, number, number]) => void;
 }
 
 const EMITTER_COLOR = 0xff8c42;
@@ -40,6 +41,13 @@ export class PannerViewport {
   private dragging: { object: THREE.Object3D; target: DragTarget } | null = null;
   private downAt: { x: number; y: number } | null = null;
   private frame = 0;
+
+  // Blender-style gizmo (translate arrows + rotate rings).
+  private readonly gizmo = new THREE.Group();
+  private readonly gizmoParts: { mesh: THREE.Mesh; mode: "translate" | "rotate"; axis: THREE.Vector3 }[] = [];
+  private gizmoTarget: { object: THREE.Object3D; target: DragTarget } | null = null;
+  private gizmoDrag: { mode: "translate" | "rotate"; axis: THREE.Vector3; startPos: THREE.Vector3; startQuat: THREE.Quaternion; plane: THREE.Plane; startAngle: number; u: THREE.Vector3; v: THREE.Vector3 } | null = null;
+  private selectedId: string | null = null;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -72,6 +80,10 @@ export class PannerViewport {
     const key = new THREE.DirectionalLight(0xffffff, 2.2);
     key.position.set(6, 10, 6);
     this.scene.add(key);
+
+    this.buildGizmo();
+    this.gizmo.visible = false;
+    this.scene.add(this.gizmo);
 
     canvas.addEventListener("pointerdown", this.onPointerDown);
     canvas.addEventListener("pointermove", this.onPointerMove);
@@ -175,6 +187,14 @@ export class PannerViewport {
     }
   }
 
+  setHidden(hiddenIds: string[]): void {
+    for (const [key, entry] of this.draggables) {
+      const id = key.split(":")[1];
+      entry.object.visible = !hiddenIds.includes(id);
+    }
+    this.updateGizmo();
+  }
+
   highlight(selection: { type: PrimType; id: string } | null): void {
     for (const { object, target, baseColor } of this.draggables.values()) {
       const selected = selection !== null && selection.type === target.type && selection.id === target.id;
@@ -188,6 +208,14 @@ export class PannerViewport {
           (mesh.material as THREE.MeshStandardMaterial).color.setHex(selected ? selectedColor : baseColor);
         }
       });
+    }
+    // Attach the Blender-style gizmo to the selected object.
+    const key = selection ? `${selection.type}:${selection.id}` : null;
+    if (key !== this.selectedId) {
+      this.selectedId = key;
+      const entry = key ? this.draggables.get(key) : null;
+      this.gizmoTarget = entry ?? null;
+      this.updateGizmo();
     }
   }
 
@@ -212,6 +240,77 @@ export class PannerViewport {
     this.renderer.dispose();
   }
 
+  private buildGizmo(): void {
+    const axes: { name: "x" | "y" | "z"; color: number; axis: THREE.Vector3; shaftRot: THREE.Euler; ringRot: THREE.Euler }[] = [
+      { name: "x", color: 0xff5252, axis: new THREE.Vector3(1, 0, 0), shaftRot: new THREE.Euler(0, 0, -Math.PI / 2), ringRot: new THREE.Euler(0, Math.PI / 2, 0) },
+      { name: "y", color: 0x52d052, axis: new THREE.Vector3(0, 1, 0), shaftRot: new THREE.Euler(0, 0, 0), ringRot: new THREE.Euler(Math.PI / 2, 0, 0) },
+      { name: "z", color: 0x4d8dff, axis: new THREE.Vector3(0, 0, 1), shaftRot: new THREE.Euler(Math.PI / 2, 0, 0), ringRot: new THREE.Euler(0, 0, 0) },
+    ];
+    for (const { color, axis, shaftRot, ringRot } of axes) {
+      const shaft = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.045, 0.045, 0.8, 12),
+        new THREE.MeshBasicMaterial({ color, depthTest: false })
+      );
+      shaft.rotation.copy(shaftRot);
+      shaft.position.copy(axis).multiplyScalar(0.4);
+      const tip = new THREE.Mesh(
+        new THREE.ConeGeometry(0.1, 0.2, 16),
+        new THREE.MeshBasicMaterial({ color, depthTest: false })
+      );
+      tip.rotation.copy(shaftRot);
+      tip.position.copy(axis).multiplyScalar(0.95);
+      shaft.renderOrder = 999;
+      tip.renderOrder = 999;
+      this.gizmo.add(shaft, tip);
+      this.gizmoParts.push({ mesh: shaft, mode: "translate", axis });
+      this.gizmoParts.push({ mesh: tip, mode: "translate", axis });
+
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(0.62, 0.022, 12, 48),
+        new THREE.MeshBasicMaterial({ color, depthTest: false })
+      );
+      ring.rotation.copy(ringRot);
+      ring.renderOrder = 999;
+      this.gizmo.add(ring);
+      this.gizmoParts.push({ mesh: ring, mode: "rotate", axis });
+    }
+  }
+
+  /** Attach the gizmo to the selected object (Blender-style overlay). */
+  private updateGizmo(): void {
+    const entry = this.gizmoTarget;
+    if (!entry || !this.draggables.has(`${entry.target.type}:${entry.target.id}`)) {
+      this.gizmo.visible = false;
+      this.gizmoTarget = null;
+      return;
+    }
+    this.gizmo.visible = entry.object.visible;
+    this.gizmo.position.copy(entry.object.position);
+    const cameraDistance = this.camera.position.distanceTo(entry.object.position);
+    const scale = Math.max(0.35, Math.min(2.5, cameraDistance * 0.18));
+    this.gizmo.scale.setScalar(scale);
+  }
+
+  private pickGizmo(event: PointerEvent): { mode: "translate" | "rotate"; axis: THREE.Vector3 } | null {
+    if (!this.gizmo.visible) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    this.pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const hits = this.raycaster.intersectObjects(this.gizmoParts.map((p) => p.mesh), false);
+    if (hits.length === 0) return null;
+    const mesh = hits[0].object as THREE.Mesh;
+    const part = this.gizmoParts.find((p) => p.mesh === mesh);
+    return part ? { mode: part.mode, axis: part.axis } : null;
+  }
+
+  private rayToPointerPlane(event: PointerEvent, plane: THREE.Plane): THREE.Vector3 | null {
+    const rect = this.canvas.getBoundingClientRect();
+    this.pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const hit = new THREE.Vector3();
+    return this.raycaster.ray.intersectPlane(plane, hit) ? hit : null;
+  }
+
   // --- interaction ------------------------------------------------------------
 
   private pickObject(event: PointerEvent): { object: THREE.Object3D; target: DragTarget } | null {
@@ -231,6 +330,34 @@ export class PannerViewport {
 
   private onPointerDown = (event: PointerEvent): void => {
     this.downAt = { x: event.clientX, y: event.clientY };
+    // 1) Gizmo handles win (translate axis / rotate ring).
+    const gizmoPart = this.pickGizmo(event);
+    if (gizmoPart && this.gizmoTarget) {
+      this.controls.enabled = false;
+      this.dragging = null;
+      const entry = this.gizmoTarget;
+      const { axis } = gizmoPart;
+      if (gizmoPart.mode === "translate") {
+        const cameraDir = this.camera.getWorldDirection(new THREE.Vector3());
+        let normal = new THREE.Vector3().crossVectors(axis, cameraDir);
+        if (normal.lengthSq() < 1e-6) normal = cameraDir.clone();
+        const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, entry.object.position);
+        this.gizmoDrag = {
+          mode: "translate", axis, startPos: entry.object.position.clone(), startQuat: entry.object.quaternion.clone(),
+          plane, startAngle: 0, u: new THREE.Vector3(), v: new THREE.Vector3(),
+        };
+      } else {
+        const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(axis, entry.object.position);
+        const u = new THREE.Vector3().crossVectors(axis, this.camera.position.clone().sub(entry.object.position)).normalize();
+        if (u.lengthSq() < 1e-6) u.set(1, 0, 0);
+        const v = new THREE.Vector3().crossVectors(axis, u).normalize();
+        const hit = this.rayToPointerPlane(event, plane);
+        const startAngle = hit ? Math.atan2(v.dot(hit.clone().sub(entry.object.position)), u.dot(hit.clone().sub(entry.object.position))) : 0;
+        this.gizmoDrag = { mode: "rotate", axis, startPos: entry.object.position.clone(), startQuat: entry.object.quaternion.clone(), plane, startAngle, u, v };
+      }
+      return;
+    }
+    // 2) Scene objects.
     const pick = this.pickObject(event);
     if (pick) {
       this.controls.enabled = false;
@@ -246,18 +373,39 @@ export class PannerViewport {
   };
 
   private onPointerMove = (event: PointerEvent): void => {
+    if (this.gizmoDrag && this.gizmoTarget) {
+      const drag = this.gizmoDrag;
+      const hit = this.rayToPointerPlane(event, drag.plane);
+      if (!hit) return;
+      if (drag.mode === "translate") {
+        const s = new THREE.Vector3().subVectors(hit, drag.startPos).dot(drag.axis);
+        this.gizmoTarget.object.position.copy(drag.startPos).addScaledVector(drag.axis, s);
+      } else {
+        const rel = new THREE.Vector3().subVectors(hit, drag.startPos);
+        const angle = Math.atan2(drag.v.dot(rel), drag.u.dot(rel)) - drag.startAngle;
+        const delta = new THREE.Quaternion().setFromAxisAngle(drag.axis, angle);
+        this.gizmoTarget.object.quaternion.copy(delta.multiply(drag.startQuat));
+      }
+      this.updateGizmo();
+      return;
+    }
     if (!this.dragging) return;
     const hit = this.raycastToPlane(event);
     if (hit) this.dragging.object.position.copy(hit.add(this.dragOffset));
   };
 
   private onPointerUp = (event: PointerEvent): void => {
-    const wasDrag = this.dragging !== null;
+    const wasDrag = this.dragging !== null || this.gizmoDrag !== null;
     if (this.dragging) {
       const { object, target } = this.dragging;
       const position: [number, number, number] = [object.position.x, object.position.y, object.position.z];
-      this.callbacks.onDragEnd(target, position);
+      this.callbacks.onDragEnd(target, position, [object.quaternion.x, object.quaternion.y, object.quaternion.z, object.quaternion.w]);
       this.dragging = null;
+    }
+    if (this.gizmoDrag && this.gizmoTarget) {
+      const { object, target } = this.gizmoTarget;
+      this.callbacks.onDragEnd(target, [object.position.x, object.position.y, object.position.z], [object.quaternion.x, object.quaternion.y, object.quaternion.z, object.quaternion.w]);
+      this.gizmoDrag = null;
     }
     this.controls.enabled = true;
     // A pure click (no movement) on empty space keeps the selection cleared;
@@ -279,6 +427,7 @@ export class PannerViewport {
   private loop = (): void => {
     this.frame = requestAnimationFrame(this.loop);
     this.controls.update();
+    this.updateGizmo();
     this.renderer.render(this.scene, this.camera);
   };
 }

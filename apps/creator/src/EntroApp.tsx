@@ -37,6 +37,7 @@ import { BakePanel, DeliveryPanel } from "./components/StatusPanel";
 import { Transport } from "./components/Transport";
 import { MenuBar } from "./components/MenuBar";
 import { NodeEditor } from "./components/NodeEditor";
+import { Splash } from "./components/Splash";
 import { ENTRO_PRESETS } from "./workspaces";
 
 /** Register the audio functionality into the template's panel registry.
@@ -72,6 +73,7 @@ function StatusBar() {
 
 export function EntroApp() {
   const document = useCreatorStore((s) => s.document);
+  const splashOpen = useCreatorStore((s) => s.splashOpen);
   const logLine = useCreatorStore((s) => s.logLine);
   const loadDocument = useCreatorStore((s) => s.loadDocument);
   const [workspaces, setWorkspaces] = useState<WorkspaceInstance[]>(() =>
@@ -176,6 +178,7 @@ export function EntroApp() {
         />
       </div>
       <ToastStack />
+      {splashOpen && <Splash />}
     </div>
   );
 }

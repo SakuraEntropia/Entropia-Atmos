@@ -1,7 +1,7 @@
 /** React wrapper around the three.js panner viewport. */
 import { useEffect, useRef } from "react";
 import { PannerViewport } from "../pan/pannerViewport";
-import { setTransformPosition, useCreatorStore } from "../state/sceneStore";
+import { setTransformPosition, setTransformRotation, useCreatorStore } from "../state/sceneStore";
 
 export function Viewport3D() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -11,14 +11,18 @@ export function Viewport3D() {
   const select = useCreatorStore((s) => s.select);
   const updatePayload = useCreatorStore((s) => s.updatePayload);
   const viewportReset = useCreatorStore((s) => s.viewportReset);
+  const hiddenIds = useCreatorStore((s) => s.hiddenIds);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const viewport = new PannerViewport(canvas, {
       onSelect: (target) => select(target),
-      onDragEnd: (target, position) =>
-        updatePayload(target.type, target.id, (payload) => setTransformPosition(payload, position)),
+      onDragEnd: (target, position, quaternion) =>
+        updatePayload(target.type, target.id, (payload) => {
+          setTransformPosition(payload, position);
+          setTransformRotation(payload, quaternion);
+        }),
     });
     viewportRef.current = viewport;
 
@@ -49,6 +53,10 @@ export function Viewport3D() {
   useEffect(() => {
     viewportRef.current?.resetCamera();
   }, [viewportReset]);
+
+  useEffect(() => {
+    viewportRef.current?.setHidden(hiddenIds);
+  }, [hiddenIds]);
 
   return (
     <div className="viewport-wrap">
