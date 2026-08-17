@@ -240,11 +240,27 @@ function mapGeometry(prim: AudioUsdPrim): GeometryRef {
   const path = `prims/${prim.id}`;
   const payload = prim.payload;
   const ref: GeometryRef = {
-    assetId: stringField(payload, "assetId", path),
     transform: transformField(payload, path),
   };
+  const assetId = optionalStringField(payload, "assetId", path);
+  if (assetId !== undefined) ref.assetId = assetId;
   const materialId = optionalStringField(payload, "materialId", path);
   if (materialId !== undefined) ref.materialId = materialId;
+  if (payload.mesh !== undefined) {
+    if (!isRecord(payload.mesh)) fail(`${path}.mesh`, "must be an object");
+    const positions = payload.mesh.positions;
+    const triangles = payload.mesh.triangles;
+    const isNumberArray = (v: unknown): v is number[] =>
+      Array.isArray(v) && v.every((n) => typeof n === "number" && Number.isFinite(n));
+    if (!isNumberArray(positions) || positions.length === 0 || positions.length % 3 !== 0) {
+      fail(`${path}.mesh.positions`, "must be a non-empty array of xyz triples");
+    }
+    if (!isNumberArray(triangles) || triangles.length === 0 || triangles.length % 3 !== 0) {
+      fail(`${path}.mesh.triangles`, "must be a non-empty array of index triples");
+    }
+    ref.mesh = { positions: Float32Array.from(positions), triangles: Uint32Array.from(triangles) };
+  }
+  if (!ref.mesh && !ref.assetId) fail(`${path}`, "geometry prim needs 'mesh' or 'assetId'");
   return ref;
 }
 

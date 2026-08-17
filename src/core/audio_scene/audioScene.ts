@@ -6,13 +6,18 @@ import type { SoundListener } from "./listener";
 import type { SplatField } from "./splatField";
 import type { Transform, Vec3 } from "./types";
 
-/** A geometry asset reference consumed by the engine's geometry processor. */
+/** A geometry asset reference consumed by the engine's geometry processor.
+ * May carry an inline triangle mesh (imported models) instead of an
+ * external assetId lookup. */
 export interface GeometryRef {
-  /** Resolves against the scene's asset table (mesh). */
-  assetId: string;
+  /** Resolves against the scene's asset table (mesh); optional when `mesh`
+   * is provided inline. */
+  assetId?: string;
   /** Optional acoustic material applied to the surface. */
   materialId?: string;
   transform: Transform;
+  /** Inline triangle mesh (Blender-style model imports). */
+  mesh?: { positions: Float32Array; triangles: Uint32Array };
 }
 
 /** Optional rectangular room box that enables shoebox solvers (image source). */
@@ -74,6 +79,12 @@ export function validateScene(scene: AudioScene): SceneValidationIssue[] {
       issues.push({
         path: `geometry[${index}].materialId`,
         message: `unknown material '${ref.materialId}'`,
+      });
+    }
+    if (!ref.mesh && !ref.assetId) {
+      issues.push({
+        path: `geometry[${index}]`,
+        message: "geometry ref needs either an inline mesh or an assetId",
       });
     }
   });

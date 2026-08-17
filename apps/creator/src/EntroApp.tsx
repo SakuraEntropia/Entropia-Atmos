@@ -49,6 +49,15 @@ registerPanelContent("canvas", () => <Viewport3D />);
 registerPanelContent("inspector", () => <Inspector />);
 registerPanelContent("nodes", () => <LeftWorkspacePanel />);
 registerPanelContent("status", () => <StatusBar />);
+// Legacy template panels not used by ENTRO ATMOS: replaced with a clean
+// placeholder instead of broken ML-editor content.
+for (const type of ["files", "project", "loss", "plugins", "code", "pad", "docs"]) {
+  registerPanelContent(type, () => (
+    <div className="scene-panel">
+      <div className="scene-item muted">This panel is not used in ENTRO ATMOS.</div>
+    </div>
+  ));
+}
 
 function LeftWorkspacePanel() {
   const workspace = useCreatorStore((s) => s.workspace);
@@ -73,8 +82,7 @@ function StatusBar() {
 function entroLayout(): AreaNode {
   const left = split("column", leaf("nodes"), leaf("inspector"), 0.62);
   const main = split("row", left, leaf("canvas"), 0.26);
-  const bottom = split("row", leaf("status"), leaf("docs"), 0.62);
-  return split("column", main, bottom, 0.82);
+  return split("column", main, leaf("status"), 0.82);
 }
 
 let wsUid = 0;

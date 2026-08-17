@@ -1,10 +1,13 @@
-/** Scene panel: emitters, listeners, materials, environments with add
- * buttons and selection. */
+/** Scene panel: emitters, listeners, materials, environments, geometry with
+ * Blender-style model import (OBJ). */
+import { useRef } from "react";
+import { parseObj } from "../../../../src/formats/obj/index";
 import { useCreatorStore, type PrimType } from "../state/sceneStore";
 
 const SECTIONS: { type: PrimType; label: string; icon: string }[] = [
   { type: "emitter", label: "Emitters", icon: "◉" },
   { type: "listener", label: "Listeners", icon: "◎" },
+  { type: "geometry", label: "Geometry", icon: "⬡" },
   { type: "material", label: "Materials", icon: "▦" },
   { type: "environment", label: "Environments", icon: "≈" },
 ];
@@ -43,13 +46,15 @@ export function ScenePanel() {
   const selection = useCreatorStore((s) => s.selection);
   const select = useCreatorStore((s) => s.select);
   const logLine = useCreatorStore((s) => s.logLine);
-  const setWorkspace = useCreatorStore((s) => s.setWorkspace);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   if (!document) {
     return <div className="scene-panel">loading scene…</div>;
   }
 
   const primsOf = (type: PrimType) => document.layers.flatMap((l) => l.prims).filter((p) => p.type === type);
+  const firstMaterialId = primsOf("material")[0]?.id;
+  const wallMaterialId = (document.room?.wallMaterialId as string | undefined) ?? firstMaterialId;
 
   const addPrim = (type: PrimType) => {
     const payload =
@@ -59,22 +64,61 @@ export function ScenePanel() {
       : addEnvironmentPayload();
     const id = `${type.slice(0, 1)}${Date.now().toString(36)}`;
     document.layers[0].prims.push({ type, id, name: `${type}-${id}`, payload });
-    // Force a state refresh by reloading the (mutated) document clone.
     useCreatorStore.setState({ document: { ...document } });
     select({ type, id });
     logLine(`added ${type} '${id}'`);
-    void setWorkspace;
+  };
+
+  const importObj = async (file: File) => {
+    try {
+      const mesh = parseObj(await file.text());
+      const id = `g${Date.now().toString(36)}`;
+      const name = file.name.replace(/\.obj$/i, "");
+      document.layers[0].prims.push({
+        type: "geometry",
+        id,
+        name,
+        payload: {
+          transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
+          materialId: wallMaterialId,
+          mesh: { positions: Array.from(mesh.positions), triangles: Array.from(mesh.triangles) },
+        },
+      });
+      useCreatorStore.setState({ document: { ...document } });
+      select({ type: "geometry", id });
+      logLine(`imported model '${file.name}' (${mesh.triangles.length / 3} triangles)`);
+    } catch (error) {
+      logLine(`import failed: ${error instanceof Error ? error.message : error}`);
+    }
   };
 
   return (
     <div className="scene-panel">
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".obj"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void importObj(file);
+          e.target.value = "";
+        }}
+      />
+      <div className="scene-tools">
+        <button className="mini-btn wide" title="Import a Wavefront OBJ model (Blender-style import)" onClick={() => fileRef.current?.click()}>
+          ⬇ Import .obj
+        </button>
+      </div>
       {SECTIONS.map((section) => (
         <div key={section.type} className="scene-section">
           <div className="scene-section-head">
             <span>{section.icon} {section.label}</span>
-            <button className="mini-btn" title={`add ${section.type}`} onClick={() => addPrim(section.type)}>
-              +
-            </button>
+            {section.type !== "geometry" && (
+              <button className="mini-btn" title={`add ${section.type}`} onClick={() => addPrim(section.type)}>
+                +
+              </button>
+            )}
           </div>
           {primsOf(section.type).map((prim) => (
             <div

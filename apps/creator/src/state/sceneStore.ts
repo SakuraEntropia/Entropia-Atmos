@@ -14,7 +14,7 @@ export interface TransformPayload {
   scale: [number, number, number];
 }
 
-export type PrimType = "emitter" | "listener" | "material" | "environment";
+export type PrimType = "emitter" | "listener" | "material" | "environment" | "geometry";
 
 export type Selection = { type: PrimType; id: string } | null;
 

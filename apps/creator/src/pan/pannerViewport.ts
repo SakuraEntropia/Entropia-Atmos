@@ -23,6 +23,8 @@ const EMITTER_SELECTED = 0xffc27f;
 const LISTENER_COLOR = 0x4fc3f7;
 const LISTENER_SELECTED = 0x9fdcff;
 const WALL_COLOR = 0x3a4a5a;
+const GEOMETRY_COLOR = 0x8a9db0;
+const GEOMETRY_EDGE = 0x5f7184;
 
 export class PannerViewport {
   private readonly renderer: THREE.WebGLRenderer;
@@ -53,8 +55,11 @@ export class PannerViewport {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
     this.controls.target.set(2.5, 2, 1.5);
+    // Standard viewer scheme: left-drag orbits, middle-drag pans, wheel
+    // zooms. Dragging an object (pointer down ON it) temporarily takes
+    // over; clicking empty space just selects.
     this.controls.mouseButtons = {
-      LEFT: undefined as unknown as THREE.MOUSE,
+      LEFT: THREE.MOUSE.ROTATE,
       MIDDLE: THREE.MOUSE.PAN,
       RIGHT: THREE.MOUSE.ROTATE,
     };
@@ -98,6 +103,29 @@ export class PannerViewport {
       edges.position.copy(center);
       this.scene.add(edges);
       this.controls.target.copy(center);
+    }
+
+    // Imported triangle meshes (geometry prims with inline mesh data).
+    const geometryPrims = document.layers.flatMap((layer) => layer.prims).filter((p) => p.type === "geometry");
+    for (const prim of geometryPrims) {
+      const meshPayload = prim.payload.mesh as { positions: number[]; triangles: number[] } | undefined;
+      if (!meshPayload) continue;
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute(meshPayload.positions, 3));
+      geometry.setIndex(meshPayload.triangles);
+      geometry.computeVertexNormals();
+      const object = new THREE.Mesh(
+        geometry,
+        new THREE.MeshStandardMaterial({ color: GEOMETRY_COLOR, roughness: 0.6, metalness: 0.05, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
+      );
+      const edges = new THREE.LineSegments(
+        new THREE.EdgesGeometry(geometry),
+        new THREE.LineBasicMaterial({ color: GEOMETRY_EDGE, transparent: true, opacity: 0.9 })
+      );
+      object.add(edges);
+      applyTransform(object, transformOf(prim.payload));
+      this.scene.add(object);
+      this.draggables.set(`geometry:${prim.id}`, { object, target: { type: "geometry", id: prim.id }, baseColor: GEOMETRY_COLOR });
     }
 
     for (const layer of document.layers) {
@@ -150,12 +178,14 @@ export class PannerViewport {
   highlight(selection: { type: PrimType; id: string } | null): void {
     for (const { object, target, baseColor } of this.draggables.values()) {
       const selected = selection !== null && selection.type === target.type && selection.id === target.id;
+      const selectedColor =
+        target.type === "emitter" ? EMITTER_SELECTED
+        : target.type === "listener" ? LISTENER_SELECTED
+        : 0x9db3c8;
       object.traverse((child) => {
         const mesh = child as THREE.Mesh;
         if (mesh.isMesh && mesh.material instanceof THREE.MeshStandardMaterial) {
-          (mesh.material as THREE.MeshStandardMaterial).color.setHex(
-            selected ? (target.type === "emitter" ? EMITTER_SELECTED : LISTENER_SELECTED) : baseColor
-          );
+          (mesh.material as THREE.MeshStandardMaterial).color.setHex(selected ? selectedColor : baseColor);
         }
       });
     }

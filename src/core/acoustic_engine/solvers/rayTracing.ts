@@ -37,8 +37,12 @@ export class RayTracingSolver implements Solver {
     }
 
     const instances: MeshInstance[] = scene.geometry.map((ref) => {
-      const mesh = this.meshes.get(ref.assetId);
-      if (!mesh) throw new Error(`no mesh loaded for assetId '${ref.assetId}' (--mesh assetId=file.obj)`);
+      const mesh = ref.mesh ?? this.meshes.get(ref.assetId ?? "");
+      if (!mesh) {
+        throw new Error(
+          `no mesh for geometry '${ref.assetId ?? "(inline)"}' — inline meshes or --mesh assetId=file.obj are required`
+        );
+      }
       return { mesh, materialId: ref.materialId };
     });
 

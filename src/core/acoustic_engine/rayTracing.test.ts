@@ -103,4 +103,25 @@ describe("RayTracingSolver (general geometry)", () => {
       })
     ).rejects.toThrow(/scene geometry/);
   });
+
+  it("renders inline imported meshes (Blender-style model imports)", async () => {
+    const scene = buildShoeboxScene();
+    scene.geometry = [
+      {
+        materialId: "concrete",
+        transform: { position: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: { x: 1, y: 1, z: 1 } },
+        mesh: meshFromObj(BOX_OBJ),
+      },
+    ];
+    const dir = await new RayTracingSolver(new Map()).simulate({
+      scene,
+      emitterId: "e1",
+      listenerId: "l1",
+      options: { solver: "ray-tracing", maxReflectionOrder: 0, sampleRate: 48000 },
+    });
+    const direct = dir.early.find((p) => p.materialHits.length === 0);
+    expect(direct).toBeDefined();
+    expect(direct!.distanceMeters).toBeCloseTo(Math.sqrt(8), 6);
+    expect(direct!.gain).toBeCloseTo(1 / Math.sqrt(8), 3);
+  });
 });

@@ -219,6 +219,35 @@ function SimulationControls() {
   );
 }
 
+function GeometryEditor({ id }: { id: string }) {
+  const document = useCreatorStore((s) => s.document);
+  const update = useCreatorStore((s) => s.updatePayload);
+  const prim = selectedPrim(document, { type: "geometry", id });
+  if (!prim) return null;
+  const transform = transformOf(prim.payload);
+  const mesh = prim.payload.mesh as { triangles?: number[] } | undefined;
+  const materialIds = document?.layers.flatMap((l) => l.prims).filter((p) => p.type === "material").map((p) => p.id) ?? [];
+  return (
+    <div className="inspector-body">
+      <h4>Geometry — {prim.name}</h4>
+      <Vec3Row label="Position" value={transform.position} onChange={(v) => update("geometry", id, (p) => setTransformPosition(p, v))} />
+      <label className="field">
+        Material
+        <select
+          value={String(prim.payload.materialId ?? "")}
+          onChange={(e) => update("geometry", id, (p) => void (p.materialId = e.target.value || undefined))}
+        >
+          <option value="">(default wall)</option>
+          {materialIds.map((mid) => (
+            <option key={mid} value={mid}>{mid}</option>
+          ))}
+        </select>
+      </label>
+      <p className="muted">{mesh?.triangles ? `${mesh.triangles.length / 3} triangles — drag it in the 3D view to move it.` : "no mesh data"}</p>
+    </div>
+  );
+}
+
 export function Inspector() {
   const selection = useCreatorStore((s) => s.selection);
   const workspace = useCreatorStore((s) => s.workspace);
@@ -237,7 +266,8 @@ export function Inspector() {
           {selection?.type === "listener" && <ListenerEditor id={selection.id} />}
           {selection?.type === "material" && <MaterialEditor id={selection.id} />}
           {selection?.type === "environment" && <EnvironmentEditor id={selection.id} />}
-          {!selection && <p className="muted pad">Select an emitter, listener, material, or environment.</p>}
+          {selection?.type === "geometry" && <GeometryEditor id={selection.id} />}
+          {!selection && <p className="muted pad">Select an emitter, listener, material, geometry, or environment.</p>}
         </>
       )}
     </div>
