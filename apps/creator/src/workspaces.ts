@@ -11,8 +11,9 @@ export const ENTRO_PRESETS: WorkspacePreset[] = [
     category: "ENTRO",
     description: "Scene construction: scene graph + 3D panner + inspector.",
     build: () => {
-      const left = split("column", leaf("nodes"), leaf("inspector"), 0.62);
-      const main = split("row", left, leaf("canvas"), 0.26);
+      const sceneCol = split("column", leaf("nodes"), leaf("files"), 0.62);
+      const left = split("column", sceneCol, leaf("inspector"), 0.62);
+      const main = split("row", left, leaf("canvas"), 0.28);
       return split("column", main, status(), 0.82);
     },
   },

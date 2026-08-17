@@ -37,6 +37,7 @@ import { BakePanel, DeliveryPanel } from "./components/StatusPanel";
 import { Transport } from "./components/Transport";
 import { MenuBar } from "./components/MenuBar";
 import { NodeEditor } from "./components/NodeEditor";
+import { AssetLibrary } from "./components/AssetLibrary";
 import { Splash } from "./components/Splash";
 import { ENTRO_PRESETS } from "./workspaces";
 
@@ -47,9 +48,10 @@ registerPanelContent("inspector", () => <Inspector />);
 registerPanelContent("nodes", () => <LeftWorkspacePanel />);
 registerPanelContent("status", () => <StatusBar />);
 registerPanelContent("shader", () => <NodeEditor />);
+registerPanelContent("files", () => <AssetLibrary />);
 // Delete every legacy template panel from the UI: only the audio panels
 // remain in the panel-type dropdown.
-setPanelTypeVisibility(["nodes", "canvas", "inspector", "status", "shader"]);
+setPanelTypeVisibility(["nodes", "files", "canvas", "inspector", "status", "shader"]);
 
 function LeftWorkspacePanel() {
   const workspace = useCreatorStore((s) => s.workspace);

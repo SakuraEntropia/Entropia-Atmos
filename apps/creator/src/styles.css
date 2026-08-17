@@ -181,3 +181,18 @@ body {
 .outliner-eye:hover, .outliner-x:hover { color: #ff9d4d; }
 .outliner-x { opacity: 0; }
 .scene-item:hover .outliner-x { opacity: 1; }
+
+/* asset library (riko-style file manager) */
+.asset-library { padding: 8px; }
+.asset-toolbar { margin-bottom: 8px; }
+.asset-search { width: 100%; padding: 6px 10px; background: #101318; border: 1px solid #2c3340; color: #d6dde4; border-radius: 6px; }
+.asset-actions { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.asset-groups { overflow-y: auto; }
+.asset-group-head { font-weight: 600; font-size: 11px; letter-spacing: 0.08em; color: #8a97a3; padding: 6px 6px 4px; }
+.asset-row { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 5px; }
+.asset-row:hover { background: #1f242c; }
+.asset-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; color: #c3cdd6; }
+.asset-name:hover { color: #ff9d4d; }
+.asset-format { font-size: 10px; color: #5c6773; border: 1px solid #2c3340; border-radius: 3px; padding: 0 4px; }
+.asset-del { opacity: 0; }
+.asset-row:hover .asset-del { opacity: 1; }

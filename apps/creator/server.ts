@@ -205,6 +205,44 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       res.end(data);
       return;
     }
+    if (req.method === "GET" && url.pathname === "/api/files") {
+      // riko-compatible asset listing over the examples directory.
+      const files = readdirSync(EXAMPLES)
+        .filter((f) => f.endsWith(".audio_usd.json"))
+        .map((f) => ({ name: f.replace(/\.audio_usd\.json$/, ""), path: `examples/${f}`, imports: [], format: "ascii" }));
+      sendJson(res, 200, { files });
+      return;
+    }
+    if (req.method === "GET" && url.pathname === "/api/files/content") {
+      const path = url.searchParams.get("path") ?? "";
+      if (!path.startsWith("examples/") || path.includes("..")) throw new Error("path not allowed");
+      const text = readFileSync(resolve(import.meta.dirname, "../../", path), "utf8");
+      sendJson(res, 200, { status: "success", doc: JSON.parse(text) });
+      return;
+    }
+    if (req.method === "POST" && url.pathname === "/api/files/save") {
+      const body = await readBody(req);
+      const name = String(body.name ?? "scene");
+      if (!/^[a-zA-Z0-9._-]+$/.test(name)) throw new Error(`invalid scene name '${name}'`);
+      const doc = (body.doc ?? {}) as Record<string, unknown>;
+      toAudioScene(parseAudioUsd(JSON.stringify(doc)));
+      const path = join(EXAMPLES, `${name}.audio_usd.json`);
+      writeFileSync(path, JSON.stringify(doc, null, 2) + "\n");
+      sendJson(res, 200, { status: "success", path, format: "ascii" });
+      return;
+    }
+    if (req.method === "POST" && url.pathname === "/api/files/delete") {
+      const body = await readBody(req);
+      const name = String(body.name ?? "");
+      if (!/^[a-zA-Z0-9._-]+$/.test(name)) throw new Error(`invalid scene name '${name}'`);
+      const path = join(EXAMPLES, `${name}.audio_usd.json`);
+      if (existsSync(path)) {
+        const { rmSync } = await import("node:fs");
+        rmSync(path);
+      }
+      sendJson(res, 200, { status: "success" });
+      return;
+    }
     if (req.method === "POST" && url.pathname === "/api/save") {
       const body = await readBody(req);
       const name = String(body.name ?? "scene");
