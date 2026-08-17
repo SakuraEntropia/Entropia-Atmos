@@ -2,6 +2,7 @@
  * binaural result with the Web Audio API. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCreatorStore } from "../state/sceneStore";
+import { startLivePreview, stopLivePreview, isLivePreviewOn } from "../preview/livePreview";
 
 export function Transport() {
   const document = useCreatorStore((s) => s.document);
@@ -18,6 +19,7 @@ export function Transport() {
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const bufferRef = useRef<AudioBuffer | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [live, setLive] = useState(false);
   const [position, setPosition] = useState(0);
   const [volume, setVolume] = useState(0.8);
 
@@ -108,6 +110,20 @@ export function Transport() {
       </button>
       <button disabled={renderStatus !== "ready" || playing} onClick={play}>▶ Play</button>
       <button disabled={!playing} onClick={stop}>■ Stop</button>
+      <button
+        className={live ? "primary" : ""}
+        title="Run the engine in the browser: move objects and hear the result live"
+        onClick={() => {
+          if (live) {
+            stopLivePreview();
+            setLive(false);
+          } else {
+            void startLivePreview().then((ok) => setLive(ok));
+          }
+        }}
+      >
+        {live ? "⏸ Live preview: on" : "🔊 Live preview"}
+      </button>
       <label className="transport-field">
         Vol
         <input type="range" min={0} max={1} step={0.01} value={volume} onChange={(e) => setVolume(Number(e.target.value))} />

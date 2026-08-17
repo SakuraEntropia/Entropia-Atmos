@@ -107,8 +107,30 @@ export function MenuBar(props: MenuBarProps) {
     },
   ];
 
+  const snapEnabled = useCreatorStore((s) => s.snapEnabled);
+  const setSnapEnabled = useCreatorStore((s) => s.setSnapEnabled);
+  const snapStep = useCreatorStore((s) => s.snapStep);
+  const setSnapStep = useCreatorStore((s) => s.setSnapStep);
+  const coordSpace = useCreatorStore((s) => s.coordSpace);
+  const setCoordSpace = useCreatorStore((s) => s.setCoordSpace);
+  const openSplash = useCreatorStore((s) => s.openSplash);
+
   return (
     <div className="menubar" onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`menu-item app-logo-item ${openMenu === "__app__" ? "active" : ""}`}
+        title="ENTRO ATMOS"
+        onClick={() => setOpenMenu(openMenu === "__app__" ? null : "__app__")}
+      >
+        <img src="/brand/logo.png" alt="ENTRO ATMOS" className="menubar-logo" />
+        {openMenu === "__app__" && (
+          <div className="dropdown" onClick={(e) => e.stopPropagation()}>
+            <div className="dropdown-item" onClick={() => { openSplash(); setOpenMenu(null); }}>Welcome Screen</div>
+            <div className="dropdown-item" onClick={() => { window.open("https://github.com/SakuraEntropia/Entropia-Atmos", "_blank"); setOpenMenu(null); }}>GitHub Repository</div>
+            <div className="dropdown-item" onClick={() => { window.alert("ENTRO ATMOS — AI + Graphics inspired spatial audio engine\nBlender for spatial audio."); setOpenMenu(null); }}>About ENTRO ATMOS</div>
+          </div>
+        )}
+      </div>
       <input
         ref={modelInput}
         type="file"
@@ -178,6 +200,25 @@ export function MenuBar(props: MenuBarProps) {
           onMove={props.onMove}
           onReorder={props.onReorder}
         />
+      </div>
+      <div className="menubar-options">
+        <button
+          className={`menu-opt ${snapEnabled ? "active" : ""}`}
+          title="Snapping (increment)"
+          onClick={() => setSnapEnabled(!snapEnabled)}
+        >
+          🧲
+        </button>
+        <select className="menu-opt" title="Snap step" value={snapStep} onChange={(e) => setSnapStep(Number(e.target.value))}>
+          <option value={0.1}>0.1</option>
+          <option value={0.25}>0.25</option>
+          <option value={0.5}>0.5</option>
+          <option value={1}>1</option>
+        </select>
+        <select className="menu-opt" title="Coordinate system" value={coordSpace} onChange={(e) => setCoordSpace(e.target.value as "global" | "local")}>
+          <option value="global">Global</option>
+          <option value="local">Local</option>
+        </select>
       </div>
     </div>
   );

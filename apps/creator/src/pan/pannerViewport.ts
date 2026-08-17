@@ -19,6 +19,8 @@ export interface ViewportCallbacks {
   onDragEnd: (target: DragTarget, position: [number, number, number], quaternion: [number, number, number, number]) => void;
 }
 
+const IDENTITY_QUAT = new THREE.Quaternion();
+
 const EMITTER_COLOR = 0xff8c42;
 const EMITTER_SELECTED = 0xffc27f;
 const LISTENER_COLOR = 0x4fc3f7;
@@ -44,11 +46,24 @@ export class PannerViewport {
 
   // Blender-style gizmo (translate arrows + rotate rings).
   private readonly gizmo = new THREE.Group();
-  private readonly gizmoParts: { mesh: THREE.Mesh; mode: "translate" | "rotate"; axis: THREE.Vector3 }[] = [];
+  private readonly gizmoParts: { mesh: THREE.Mesh; mode: "translate" | "rotate" | "scale"; axis: THREE.Vector3 }[] = [];
   private gizmoTarget: { object: THREE.Object3D; target: DragTarget } | null = null;
   private gizmoDrag: { mode: "translate" | "rotate" | "scale"; axis: THREE.Vector3; startPos: THREE.Vector3; startQuat: THREE.Quaternion; startScale: THREE.Vector3; plane: THREE.Plane; startAngle: number; u: THREE.Vector3; v: THREE.Vector3 } | null = null;
   private selectedId: string | null = null;
-  private tool: "select" | "move" | "rotate" | "scale" = "select";
+  private tool: "select" | "move" | "rotate" | "scale" = "move";
+  private coordSpace: "global" | "local" = "global";
+  private snapEnabled = false;
+  private snapStep = 0.25;
+
+  setCoordSpace(space: "global" | "local"): void {
+    this.coordSpace = space;
+    this.updateGizmo();
+  }
+
+  setSnap(enabled: boolean, step: number): void {
+    this.snapEnabled = enabled;
+    this.snapStep = step;
+  }
 
   /** Blender-style active tool: controls gizmo parts and object dragging. */
   setTool(tool: "select" | "move" | "rotate" | "scale"): void {
@@ -276,6 +291,15 @@ export class PannerViewport {
       { name: "z", color: 0x4d8dff, axis: new THREE.Vector3(0, 0, 1), shaftRot: new THREE.Euler(Math.PI / 2, 0, 0), ringRot: new THREE.Euler(0, 0, 0) },
     ];
     for (const { color, axis, shaftRot, ringRot } of axes) {
+      const cube = new THREE.Mesh(
+        new THREE.BoxGeometry(0.1, 0.1, 0.1),
+        new THREE.MeshBasicMaterial({ color, depthTest: false })
+      );
+      cube.position.copy(axis).multiplyScalar(0.95);
+      cube.renderOrder = 999;
+      this.gizmo.add(cube);
+      this.gizmoParts.push({ mesh: cube, mode: "scale", axis });
+
       const shaft = new THREE.Mesh(
         new THREE.CylinderGeometry(0.045, 0.045, 0.8, 12),
         new THREE.MeshBasicMaterial({ color, depthTest: false })
@@ -315,15 +339,20 @@ export class PannerViewport {
     }
     this.gizmo.visible = entry.object.visible && this.tool !== "select";
     for (const part of this.gizmoParts) {
-      part.mesh.visible = this.tool === "rotate" ? part.mode === "rotate" : part.mode === "translate";
+      part.mesh.visible =
+        this.tool === "rotate" ? part.mode === "rotate"
+        : this.tool === "scale" ? part.mode === "scale"
+        : part.mode === "translate";
     }
+    // Local coordinate system rotates the gizmo with the object.
+    this.gizmo.quaternion.copy(this.coordSpace === "local" ? entry.object.quaternion : IDENTITY_QUAT);
     this.gizmo.position.copy(entry.object.position);
     const cameraDistance = this.camera.position.distanceTo(entry.object.position);
     const scale = Math.max(0.35, Math.min(2.5, cameraDistance * 0.18));
     this.gizmo.scale.setScalar(scale);
   }
 
-  private pickGizmo(event: PointerEvent): { mode: "translate" | "rotate"; axis: THREE.Vector3 } | null {
+  private pickGizmo(event: PointerEvent): { mode: "translate" | "rotate" | "scale"; axis: THREE.Vector3 } | null {
     if (!this.gizmo.visible) return null;
     const rect = this.canvas.getBoundingClientRect();
     this.pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
@@ -332,7 +361,11 @@ export class PannerViewport {
     if (hits.length === 0) return null;
     const mesh = hits[0].object as THREE.Mesh;
     const part = this.gizmoParts.find((p) => p.mesh === mesh);
-    return part ? { mode: part.mode, axis: part.axis } : null;
+    if (!part) return null;
+    const axis = this.coordSpace === "local" && this.gizmoTarget
+      ? part.axis.clone().applyQuaternion(this.gizmoTarget.object.quaternion).normalize()
+      : part.axis.clone();
+    return { mode: part.mode, axis };
   }
 
   private rayToPointerPlane(event: PointerEvent, plane: THREE.Plane): THREE.Vector3 | null {
@@ -369,7 +402,7 @@ export class PannerViewport {
       this.dragging = null;
       const entry = this.gizmoTarget;
       const { axis } = gizmoPart;
-      if (gizmoPart.mode === "translate" && this.tool === "scale") {
+      if (gizmoPart.mode === "scale") {
         const cameraDir = this.camera.getWorldDirection(new THREE.Vector3());
         let normal = new THREE.Vector3().crossVectors(axis, cameraDir);
         if (normal.lengthSq() < 1e-6) normal = cameraDir.clone();
@@ -421,12 +454,16 @@ export class PannerViewport {
       const hit = this.rayToPointerPlane(event, drag.plane);
       if (!hit) return;
       if (drag.mode === "translate") {
-        const s = new THREE.Vector3().subVectors(hit, drag.startPos).dot(drag.axis);
+        let s = new THREE.Vector3().subVectors(hit, drag.startPos).dot(drag.axis);
+        if (this.snapEnabled) s = Math.round(s / this.snapStep) * this.snapStep;
         this.gizmoTarget.object.position.copy(drag.startPos).addScaledVector(drag.axis, s);
       } else if (drag.mode === "scale") {
         const s = new THREE.Vector3().subVectors(hit, drag.startPos).dot(drag.axis);
-        const worldScale = Math.max(this.gizmo.scale.x, 0.01);
-        const factor = Math.max(0.01, 1 + (s / worldScale) * 0.9);
+        // Factor = drag distance / initial handle distance (correct Blender
+        // semantics), snapped to 0.1 steps when snapping is enabled.
+        const handleDistance = Math.max(0.1, this.gizmo.scale.x * 0.95);
+        let factor = Math.max(0.01, 1 + s / handleDistance);
+        if (this.snapEnabled) factor = Math.max(0.01, Math.round(factor * 10) / 10);
         const scaled = drag.startScale.clone();
         if (Math.abs(drag.axis.x) > 0.5) scaled.x *= factor;
         else if (Math.abs(drag.axis.y) > 0.5) scaled.y *= factor;
@@ -434,7 +471,8 @@ export class PannerViewport {
         this.gizmoTarget.object.scale.copy(scaled);
       } else {
         const rel = new THREE.Vector3().subVectors(hit, drag.startPos);
-        const angle = Math.atan2(drag.v.dot(rel), drag.u.dot(rel)) - drag.startAngle;
+        let angle = Math.atan2(drag.v.dot(rel), drag.u.dot(rel)) - drag.startAngle;
+        if (this.snapEnabled) angle = Math.round(angle / (Math.PI / 36)) * (Math.PI / 36); // 5° steps
         const delta = new THREE.Quaternion().setFromAxisAngle(drag.axis, angle);
         this.gizmoTarget.object.quaternion.copy(delta.multiply(drag.startQuat));
       }
@@ -443,7 +481,10 @@ export class PannerViewport {
     }
     if (!this.dragging) return;
     const hit = this.raycastToPlane(event);
-    if (hit) this.dragging.object.position.copy(hit.add(this.dragOffset));
+    if (hit) {
+      this.dragging.object.position.copy(hit.add(this.dragOffset));
+      this.updateGizmo();
+    }
   };
 
   private onPointerUp = (event: PointerEvent): void => {

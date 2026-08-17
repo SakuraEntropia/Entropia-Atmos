@@ -3,6 +3,14 @@
 import { parseObj } from "../../../src/formats/obj/index";
 import { useCreatorStore, type PrimType } from "./state/sceneStore";
 
+/** Imported per-emitter audio (48 kHz mono), cached for the live preview. */
+const importedAudio = new Map<string, Float32Array>();
+let firstImported: Float32Array | null = null;
+
+export function getImportedAudio(): Float32Array | null {
+  return firstImported;
+}
+
 function doc() {
   return useCreatorStore.getState().document;
 }
@@ -215,6 +223,8 @@ export async function importAudioForEmitter(emitterId: string, file: File): Prom
     const rendered = await offline.startRendering();
     void audioContext.close();
     const samples = Array.from(rendered.getChannelData(0));
+    importedAudio.set(emitterId, rendered.getChannelData(0).slice());
+    firstImported = firstImported ?? importedAudio.get(emitterId) ?? null;
 
     const name = `${emitterId}-${file.name}`.replace(/[^a-zA-Z0-9._-]/g, "_");
     const resp = await fetch("/api/audio/upload", {

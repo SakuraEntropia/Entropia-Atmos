@@ -15,6 +15,9 @@ export function Viewport3D() {
   const hiddenIds = useCreatorStore((s) => s.hiddenIds);
   const tool = useCreatorStore((s) => s.tool);
   const frameSignal = useCreatorStore((s) => s.frameSignal);
+  const coordSpace = useCreatorStore((s) => s.coordSpace);
+  const snapEnabled = useCreatorStore((s) => s.snapEnabled);
+  const snapStep = useCreatorStore((s) => s.snapStep);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -68,6 +71,14 @@ export function Viewport3D() {
   useEffect(() => {
     viewportRef.current?.frameSelected();
   }, [frameSignal]);
+
+  useEffect(() => {
+    viewportRef.current?.setCoordSpace(coordSpace);
+  }, [coordSpace]);
+
+  useEffect(() => {
+    viewportRef.current?.setSnap(snapEnabled, snapStep);
+  }, [snapEnabled, snapStep]);
 
   return (
     <div className="viewport-wrap">

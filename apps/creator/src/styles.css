@@ -133,7 +133,7 @@ body {
 .status-time { color: #5c6773; margin-right: 8px; font-variant-numeric: tabular-nums; }
 
 /* menu-bar tab active state (inside the template .menubar) */
-.workspace-tabs-wrap { margin-left: auto; }
+.workspace-tabs-wrap { margin-left: 4px; }
 .workspace-tab.active { color: #ff9d4d; font-weight: 600; }
 .entro-dropdown-item { display: flex; justify-content: space-between; align-items: center; }
 
@@ -218,3 +218,16 @@ body {
 /* speaker audio import */
 .audio-import-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
 .audio-import-row .muted { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* menubar right-side options (snapping + coordinate system) */
+.menubar-options { display: flex; align-items: center; gap: 6px; margin-left: auto; padding-right: 8px; }
+.menu-opt { background: transparent; border: 1px solid transparent; color: #c3cdd6; border-radius: 5px; padding: 3px 8px; cursor: pointer; font-size: 12px; }
+.menu-opt:hover { background: var(--color-surface-2, #232933); }
+.menu-opt.active { color: #ff9d4d; border-color: #ff9d4d; }
+.menubar-logo { width: 22px; height: 22px; border-radius: 5px; display: block; }
+
+/* node editor (rewritten) */
+.anode.output { border-color: #52d052; }
+.anode-assets { padding: 4px 10px; display: flex; flex-direction: column; gap: 4px; }
+.anode-thumb { width: 100%; height: 56px; object-fit: cover; border-radius: 5px; border: 1px solid #2c3340; background: #101318; }
+.anode-thumb.empty { display: flex; align-items: center; justify-content: center; color: #5c6773; font-size: 10.5px; }

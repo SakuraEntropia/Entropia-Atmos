@@ -89,6 +89,14 @@ interface CreatorState {
   /** Frame the selected object in the 3D view. */
   frameSignal: number;
   frameViewport(): void;
+  /** Blender top-bar options: snapping + coordinate system. */
+  snapEnabled: boolean;
+  setSnapEnabled(enabled: boolean): void;
+  snapStep: number;
+  setSnapStep(step: number): void;
+  coordSpace: "global" | "local";
+  setCoordSpace(space: "global" | "local"): void;
+  openSplash(): void;
 }
 
 function stamp(): string {
@@ -176,10 +184,17 @@ export const useCreatorStore = create<CreatorState>((set, get) => ({
   splashOpen: true,
   closeSplash: () => set({ splashOpen: false }),
   hiddenIds: [],
-  tool: "select",
+  tool: "move",
   setTool: (tool) => set({ tool }),
   frameSignal: 0,
   frameViewport: () => set((s) => ({ frameSignal: s.frameSignal + 1 })),
+  snapEnabled: false,
+  setSnapEnabled: (snapEnabled) => set({ snapEnabled }),
+  snapStep: 0.25,
+  setSnapStep: (snapStep) => set({ snapStep }),
+  coordSpace: "global",
+  setCoordSpace: (coordSpace) => set({ coordSpace }),
+  openSplash: () => set({ splashOpen: true }),
   toggleHidden: (id) =>
     set((s) => ({
       hiddenIds: s.hiddenIds.includes(id) ? s.hiddenIds.filter((h) => h !== id) : [...s.hiddenIds, id],
