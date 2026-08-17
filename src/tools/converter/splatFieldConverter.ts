@@ -32,6 +32,8 @@ export class SplatFieldConverter implements SceneConverter<SplatField> {
               rotation: splat.rotation,
               opacity: splat.opacity,
               shCoefficients: splat.shCoefficients,
+              bandShCoefficients: splat.bandShCoefficients,
+              bandEnergies: splat.bandEnergies,
             })),
           },
         },

@@ -14,10 +14,15 @@ export interface SplatPrimitive {
   scale: Vec3;
   rotation: Quat;
   /** Normalized directional pattern: SH coefficients whose integral over the
-   * sphere is 1 (isotropic pattern = [1/√(4π), 0, …]). */
+   * sphere is 1 (isotropic pattern = [1/√(4π), 0, …]). Broadband model. */
   shCoefficients: Float32Array;
   /** Total field energy carried by the splat ("opacity proxy", SPEC FR-16). */
   opacity: number;
+  /** Optional per-analysis-band directional patterns (500/1000/2000/4000 Hz),
+   * each normalized to unit integral (per-band model, 0004). */
+  bandShCoefficients?: Float32Array[];
+  /** Optional per-band energy fractions, summing to 1 (per-band model). */
+  bandEnergies?: number[];
 }
 
 export interface SplatField {

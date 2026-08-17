@@ -16,7 +16,8 @@
  * sampled volume (documented research limitation). Do NOT layer FDN reverb
  * on top — pass lateFieldDurationSeconds: 0.
  */
-import type { AudioScene } from "../../audio_scene";
+import type { AudioScene, SplatPrimitive } from "../../audio_scene";
+import { ANALYSIS_BAND_COUNT, pathFirFromBandGains } from "../../dsp/bands";
 import { doaToSpherical, shEvaluate } from "../../sh";
 import type { DirectionalImpulseResponse, DirectionalPath } from "../impulseResponse";
 import type { SimulationRequest, Solver } from "../acousticEngine";
@@ -48,10 +49,12 @@ export class SplatFieldSolver implements Solver {
 
     // Pass 1: lobe energies + partition-of-unity kernel weights.
     const lobes: {
+      splat: SplatPrimitive;
       azimuthRadians: number;
       elevationRadians: number;
       distanceMeters: number;
-      energy: number;
+      theta: number;
+      phi: number;
       weight: number;
     }[] = [];
     let totalWeight = 0;
@@ -66,17 +69,16 @@ export class SplatFieldSolver implements Solver {
         const azimuthRadians = Math.atan2(dx, dz);
         const elevationRadians = Math.asin(Math.max(-1, Math.min(1, dy / distance)));
         const spherical = doaToSpherical(azimuthRadians, elevationRadians);
-        // Directional energy FRACTION q = 4π·SH(dir): isotropic q = 1, so a
-        // splat's rendered energy equals its opacity at its own position.
-        const pattern = Math.max(0, 4 * Math.PI * shEvaluate(splat.shCoefficients, spherical.theta, spherical.phi));
 
         const sigma = Math.max(splat.scale.x, splat.scale.y, splat.scale.z);
         const weight = Math.exp(-(distance * distance) / (2 * sigma * sigma));
         lobes.push({
+          splat,
           azimuthRadians,
           elevationRadians,
           distanceMeters: distance,
-          energy: splat.opacity * pattern,
+          theta: spherical.theta,
+          phi: spherical.phi,
           weight,
         });
         totalWeight += weight;
@@ -85,16 +87,41 @@ export class SplatFieldSolver implements Solver {
 
     // Pass 2: emit paths (partition-of-unity normalized amplitudes).
     const paths: DirectionalPath[] = lobes.map((lobe) => {
-      const gain = totalWeight > 0 ? Math.sqrt(Math.max(0, (lobe.energy * lobe.weight) / totalWeight)) : 0;
       const delaySamples = Math.round((lobe.distanceMeters / speedOfSound) * sampleRate);
-      const samples = new Float32Array(delaySamples + 1);
-      samples[delaySamples] = gain;
+      const { splat } = lobe;
+      let samples: Float32Array;
+      let gain: number | undefined;
+      let bandGains: number[] | undefined;
+
+      if (splat.bandShCoefficients && splat.bandEnergies) {
+        // Per-band model (0004): energy fraction q_b per band → band FIR.
+        const fractions = ANALYSIS_BAND_COUNT;
+        const computed = new Array<number>(fractions);
+        for (let b = 0; b < fractions; b++) {
+          const q = Math.max(0, 4 * Math.PI * shEvaluate(splat.bandShCoefficients[b] ?? splat.shCoefficients, lobe.theta, lobe.phi));
+          const energy = splat.opacity * (splat.bandEnergies[b] ?? 0) * q * lobe.weight;
+          computed[b] = totalWeight > 0 ? Math.sqrt(Math.max(0, energy / totalWeight)) : 0;
+        }
+        bandGains = computed;
+        gain = computed[1];
+        samples = pathFirFromBandGains(computed, delaySamples, sampleRate);
+      } else {
+        // Broadband model: energy = opacity · q · w / Σw.
+        const q = Math.max(0, 4 * Math.PI * shEvaluate(splat.shCoefficients, lobe.theta, lobe.phi));
+        const energy = splat.opacity * q * lobe.weight;
+        gain = totalWeight > 0 ? Math.sqrt(Math.max(0, energy / totalWeight)) : 0;
+        samples = new Float32Array(delaySamples + 1);
+        samples[delaySamples] = gain;
+      }
+
       return {
         azimuthRadians: lobe.azimuthRadians,
         elevationRadians: lobe.elevationRadians,
         distanceMeters: lobe.distanceMeters,
         materialHits: [],
         samples,
+        gain,
+        bandGains,
       };
     });
     paths.sort((a, b) => a.distanceMeters - b.distanceMeters);

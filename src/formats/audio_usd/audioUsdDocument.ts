@@ -259,13 +259,25 @@ function mapSplatField(prim: AudioUsdPrim): SplatField {
     if (!Array.isArray(coefficients) || coefficients.some((v) => typeof v !== "number" || !Number.isFinite(v))) {
       fail(`${path}.splats[${i}].shCoefficients`, "must be an array of finite numbers");
     }
-    return {
+    const splat: SplatPrimitive = {
       position: vec3Field(raw, "position", `${path}.splats[${i}]`),
       scale: vec3Field(raw, "scale", `${path}.splats[${i}]`),
       rotation: quatField(raw, "rotation", `${path}.splats[${i}]`),
       opacity: numberField(raw, "opacity", `${path}.splats[${i}]`),
       shCoefficients: Float32Array.from(coefficients as number[]),
     };
+    if (raw.bandShCoefficients !== undefined) {
+      if (!Array.isArray(raw.bandShCoefficients)) fail(`${path}.splats[${i}].bandShCoefficients`, "must be an array of coefficient arrays");
+      splat.bandShCoefficients = raw.bandShCoefficients.map((band: unknown, b) => {
+        if (!Array.isArray(band)) fail(`${path}.splats[${i}].bandShCoefficients[${b}]`, "must be an array of numbers");
+        return Float32Array.from(band as number[]);
+      });
+    }
+    if (raw.bandEnergies !== undefined) {
+      if (!Array.isArray(raw.bandEnergies)) fail(`${path}.splats[${i}].bandEnergies`, "must be an array of numbers");
+      splat.bandEnergies = raw.bandEnergies as number[];
+    }
+    return splat;
   });
   return { primitives };
 }

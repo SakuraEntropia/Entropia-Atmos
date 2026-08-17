@@ -31,7 +31,14 @@ import type { SplatLevel, VoxelField } from "./pipeline";
 /** One directional observation of the field at a probe position. */
 export interface DirectionalSample {
   position: Vec3;
-  directions: { azimuthRadians: number; elevationRadians: number; gain: number }[];
+  directions: {
+    azimuthRadians: number;
+    elevationRadians: number;
+    /** Broadband (1 kHz band) amplitude gain. */
+    gain: number;
+    /** Optional per-analysis-band amplitude gains (0004). */
+    bandGains?: number[];
+  }[];
 }
 
 /** Sample the sound field of `emitterId` at each probe position using the
@@ -61,6 +68,7 @@ export async function sampleFieldWithImageSource(
         elevationRadians: path.elevationRadians,
         // Broadband (1 kHz band) amplitude gain for the energy fit.
         gain: path.gain ?? path.bandGains?.[1] ?? 0,
+        bandGains: path.bandGains,
       })),
     });
   }
@@ -74,16 +82,18 @@ export interface FieldGrid {
 }
 
 /** Voxelize directional samples by inverse-distance-weighted ridge LS SH
- * fit per voxel. Voxels with no samples within range stay empty (zeros). */
+ * fit per voxel. `fieldBands` = 1 (broadband) or 4 (per-analysis-band).
+ * Voxels with no samples within range stay empty (zeros). */
 export function voxelizeDirectionalField(
   samples: DirectionalSample[],
   grid: FieldGrid,
-  bandCount: number
+  bandCount: number,
+  fieldBands: 1 | 4 = 1
 ): VoxelField {
   const [nx, ny, nz] = grid.resolution;
   const voxelCount = nx * ny * nz;
   const size = bandCount * bandCount;
-  const coefficients = new Float32Array(voxelCount * size);
+  const coefficients = new Float32Array(voxelCount * fieldBands * size);
   // Sample influence cutoff: one and a half voxels (covers diagonals).
   const cutoff = grid.voxelSizeMeters * 1.5;
   const epsilon = 1e-6;
@@ -95,9 +105,9 @@ export function voxelizeDirectionalField(
 
   for (let v = 0; v < voxelCount; v++) {
     const center: Vec3 = { x: voxelCenter(v, 0), y: voxelCenter(v, 1), z: voxelCenter(v, 2) };
-    // Gather weighted samples (scattered across all probes and paths).
-    const weighted: { theta: number; phi: number; value: number; weight: number }[] = [];
-    let totalWeight = 0;
+    // Gather weighted samples, per analysis band.
+    const weighted: { theta: number; phi: number; value: number; weight: number }[][] =
+      Array.from({ length: fieldBands }, () => []);
     for (const sample of samples) {
       const dx = sample.position.x - center.x;
       const dy = sample.position.y - center.y;
@@ -107,57 +117,73 @@ export function voxelizeDirectionalField(
       const weight = 1 / (distance * distance + epsilon);
       for (const direction of sample.directions) {
         const spherical = doaToSpherical(direction.azimuthRadians, direction.elevationRadians);
-        // Fit the directional ENERGY distribution (gain²), not amplitude:
-        // splat opacity then carries mean local energy, which is what the
-        // splat-field solver's √energy amplitudes reproduce.
-        weighted.push({ theta: spherical.theta, phi: spherical.phi, value: direction.gain * direction.gain, weight });
-        totalWeight += weight;
+        if (fieldBands === 1) {
+          // Fit the directional ENERGY distribution (gain²), not amplitude:
+          // splat opacity then carries mean local energy, which is what the
+          // splat-field solver's √energy amplitudes reproduce.
+          weighted[0].push({ theta: spherical.theta, phi: spherical.phi, value: direction.gain * direction.gain, weight });
+        } else {
+          const gains = direction.bandGains ?? [direction.gain];
+          for (let b = 0; b < fieldBands; b++) {
+            const gain = gains[b] ?? 0;
+            weighted[b].push({ theta: spherical.theta, phi: spherical.phi, value: gain * gain, weight });
+          }
+        }
       }
     }
-    if (totalWeight === 0) continue;
-    const fit = shWeightedLeastSquaresFit(
-      weighted.map((s) => ({ theta: s.theta, phi: s.phi, value: s.value, weight: s.weight })),
-      bandCount
-    );
-    for (let i = 0; i < size; i++) coefficients[v * size + i] = fit[i];
+    for (let b = 0; b < fieldBands; b++) {
+      if (weighted[b].length === 0) continue;
+      const fit = shWeightedLeastSquaresFit(
+        weighted[b].map((s) => ({ theta: s.theta, phi: s.phi, value: s.value, weight: s.weight })),
+        bandCount
+      );
+      const base = (v * fieldBands + b) * size;
+      for (let i = 0; i < size; i++) coefficients[base + i] = fit[i];
+    }
   }
-  return { resolution: grid.resolution, voxelSizeMeters: grid.voxelSizeMeters, origin: grid.origin, bandCount, coefficients };
+  return {
+    resolution: grid.resolution,
+    voxelSizeMeters: grid.voxelSizeMeters,
+    origin: grid.origin,
+    bandCount,
+    bands: fieldBands,
+    coefficients,
+  };
 }
 
 /** Convert a voxel SH field into AudioGS splats (one per non-empty voxel).
- * Opacity = isotropic energy (c0·√(4π)); coefficients are normalized to a
- * unit-integral directional pattern. Voxels below `energyFloor` × max are
- * pruned. */
+ * Opacity = total isotropic energy (Σ_band c0_b·√(4π)); patterns are
+ * normalized to unit integral. Per-band fields (bands = 4) carry
+ * bandShCoefficients + bandEnergies fractions. Voxels below `energyFloor` ×
+ * max are pruned. */
 export function projectFieldToSplats(field: VoxelField, energyFloor = 0.05): SplatField {
   const size = field.bandCount * field.bandCount;
-  const y00 = 1 / Math.sqrt(4 * Math.PI);
   const [nx, ny, nz] = field.resolution;
   const voxelCount = nx * ny * nz;
+  const bands = field.bands;
 
-  // First pass: energies for the pruning floor.
+  // First pass: total energies for the pruning floor.
   const energies = new Float32Array(voxelCount);
   let maxEnergy = 0;
   for (let v = 0; v < voxelCount; v++) {
-    const c0 = field.coefficients[v * size];
-    const energy = Math.max(0, c0 * y00 * 4 * Math.PI); // c0·√(4π)... see below
+    let energy = 0;
+    for (let b = 0; b < bands; b++) {
+      const c0 = field.coefficients[(v * bands + b) * size];
+      energy += Math.max(0, c0 * Math.sqrt(4 * Math.PI));
+    }
     energies[v] = energy;
     maxEnergy = Math.max(maxEnergy, energy);
   }
-  // NOTE: c0·Y00 = c0/√(4π) is the isotropic density; total energy proxy is
-  // c0/√(4π)·4π = c0·√(4π). Kept explicit for readability.
 
   const primitives: SplatPrimitive[] = [];
   const sigma = field.voxelSizeMeters * 0.5;
   for (let v = 0; v < voxelCount; v++) {
     if (energies[v] < energyFloor * maxEnergy || energies[v] <= 0) continue;
-    const c0 = field.coefficients[v * size];
-    const energy = c0 * Math.sqrt(4 * Math.PI);
-    const coefficients = new Float32Array(size);
-    for (let i = 0; i < size; i++) coefficients[i] = field.coefficients[v * size + i] / energy;
+    const energy = energies[v];
     const x = v % nx;
     const y = Math.floor(v / nx) % ny;
     const z = Math.floor(v / (nx * ny));
-    primitives.push({
+    const base = {
       position: {
         x: field.origin.x + (x + 0.5) * field.voxelSizeMeters,
         y: field.origin.y + (y + 0.5) * field.voxelSizeMeters,
@@ -165,9 +191,33 @@ export function projectFieldToSplats(field: VoxelField, energyFloor = 0.05): Spl
       },
       scale: { x: sigma, y: sigma, z: sigma },
       rotation: { x: 0, y: 0, z: 0, w: 1 },
-      shCoefficients: coefficients,
-      opacity: energy,
-    });
+    };
+
+    if (bands === 1) {
+      const coefficients = new Float32Array(size);
+      for (let i = 0; i < size; i++) coefficients[i] = field.coefficients[v * size + i] / energy;
+      primitives.push({ ...base, shCoefficients: coefficients, opacity: energy });
+    } else {
+      const bandShCoefficients: Float32Array[] = [];
+      const bandEnergies: number[] = [];
+      for (let b = 0; b < bands; b++) {
+        const c0 = field.coefficients[(v * bands + b) * size];
+        const bandEnergy = Math.max(0, c0 * Math.sqrt(4 * Math.PI));
+        const coefficients = new Float32Array(size);
+        for (let i = 0; i < size; i++) {
+          coefficients[i] = bandEnergy > 0 ? field.coefficients[(v * bands + b) * size + i] / bandEnergy : 0;
+        }
+        bandShCoefficients.push(coefficients);
+        bandEnergies.push(bandEnergy / energy);
+      }
+      primitives.push({
+        ...base,
+        shCoefficients: bandShCoefficients[1] ?? bandShCoefficients[0], // broadband = 1 kHz band
+        opacity: energy,
+        bandShCoefficients,
+        bandEnergies,
+      });
+    }
   }
   return { primitives };
 }
@@ -261,6 +311,8 @@ export interface SerializedSplatField {
     rotation: [number, number, number, number];
     opacity: number;
     shCoefficients: number[];
+    bandShCoefficients?: number[][];
+    bandEnergies?: number[];
   }[];
 }
 
@@ -274,6 +326,8 @@ export function serializeSplatField(field: SplatField, bandCount: number): Seria
       rotation: [splat.rotation.x, splat.rotation.y, splat.rotation.z, splat.rotation.w],
       opacity: splat.opacity,
       shCoefficients: Array.from(splat.shCoefficients),
+      bandShCoefficients: splat.bandShCoefficients?.map((coefficients) => Array.from(coefficients)),
+      bandEnergies: splat.bandEnergies ? Array.from(splat.bandEnergies) : undefined,
     })),
   };
 }
@@ -289,6 +343,8 @@ export function parseSplatField(data: SerializedSplatField): SplatField {
       rotation: { x: splat.rotation[0], y: splat.rotation[1], z: splat.rotation[2], w: splat.rotation[3] },
       opacity: splat.opacity,
       shCoefficients: Float32Array.from(splat.shCoefficients),
+      bandShCoefficients: splat.bandShCoefficients?.map((coefficients) => Float32Array.from(coefficients)),
+      bandEnergies: splat.bandEnergies ? Array.from(splat.bandEnergies) : undefined,
     })),
   };
 }

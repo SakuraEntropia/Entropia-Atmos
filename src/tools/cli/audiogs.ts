@@ -15,7 +15,9 @@
  * Flags:
  *   --grid <n>       voxel grid resolution (default: 4)
  *   --bands <n>      SH band count (default: 4)
+ *   --field-bands <n> analysis bands: 1 (broadband) or 4 (default)
  *   --order <n>      image-source reflection order for sampling (default: 3)
+ *   --no-calibrate   skip the opacity calibration step (0003 baseline)
  *   --out <prefix>   output file prefix (default: splat-field)
  */
 import { readFileSync, writeFileSync } from "node:fs";
@@ -25,12 +27,15 @@ import { serializeAudioUsd } from "../../formats/audio_usd/index";
 import { validateScene, type AudioScene } from "../../core/audio_scene/index";
 import {
   buildSplatManifest,
+  calibrateSplatOpacities,
+  calibrationErrorDb,
   compressSplatField,
   projectFieldToSplats,
   sampleFieldWithImageSource,
   serializeSplatField,
   splatFieldBandCount,
   voxelizeDirectionalField,
+  type ProbeEnergy,
 } from "../dataset/index";
 import { SplatFieldConverter } from "../converter/index";
 
@@ -39,7 +44,9 @@ interface AudiogsArgs {
   out: string;
   grid: number;
   bands: number;
+  fieldBands: 1 | 4;
   order: number;
+  calibrate: boolean;
 }
 
 function fail(message: string): never {
@@ -48,14 +55,19 @@ function fail(message: string): never {
 }
 
 function parseArgs(argv: string[]): AudiogsArgs {
-  const args: AudiogsArgs = { scene: "", out: "splat-field", grid: 4, bands: 4, order: 3 };
+  const args: AudiogsArgs = { scene: "", out: "splat-field", grid: 4, bands: 4, fieldBands: 4, order: 3, calibrate: true };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => argv[++i];
     if (a === "--out") args.out = next() ?? fail("--out expects a path");
     else if (a === "--grid") args.grid = Number(next());
     else if (a === "--bands") args.bands = Number(next());
-    else if (a === "--order") args.order = Number(next());
+    else if (a === "--field-bands") {
+      const value = Number(next());
+      if (value !== 1 && value !== 4) fail("--field-bands must be 1 or 4");
+      args.fieldBands = value;
+    } else if (a === "--order") args.order = Number(next());
+    else if (a === "--no-calibrate") args.calibrate = false;
     else if (!a.startsWith("--")) args.scene = a;
     else fail(`unknown flag '${a}'`);
   }
@@ -109,25 +121,55 @@ async function main(): Promise<void> {
 
   console.log(
     `sampling field: ${probePositions.length} probes (${grid.resolution.join("×")} grid, ` +
-    `${grid.voxelSizeMeters.toFixed(2)} m voxels), image-source order ${args.order}…`
+    `${grid.voxelSizeMeters.toFixed(2)} m voxels), image-source order ${args.order}, ` +
+    `${args.fieldBands} analysis band(s)…`
   );
   const samples = await sampleFieldWithImageSource(scene, emitter.id, probePositions, args.order);
 
-  const field = voxelizeDirectionalField(samples, grid, args.bands);
-  const splats = projectFieldToSplats(field);
+  // Probe energies (ground truth for calibration and the 0002 trainer).
+  const probes: ProbeEnergy[] = samples.map((sample) => {
+    const bandEnergies =
+      args.fieldBands === 4
+        ? Array.from({ length: 4 }, (_, b) =>
+            sample.directions.reduce((sum, d) => sum + (d.bandGains?.[b] ?? 0) ** 2, 0)
+          )
+        : undefined;
+    return {
+      position: sample.position,
+      energy: sample.directions.reduce((sum, d) => sum + d.gain * d.gain, 0),
+      bandEnergies,
+    };
+  });
+
+  const field = voxelizeDirectionalField(samples, grid, args.bands, args.fieldBands);
+  let splats = projectFieldToSplats(field);
+  if (args.calibrate) {
+    const before = calibrationErrorDb(splats, probes, args.fieldBands === 4 ? 1 : 0);
+    splats = calibrateSplatOpacities(splats, probes);
+    const after = calibrationErrorDb(splats, probes, args.fieldBands === 4 ? 1 : 0);
+    console.log(`calibration (0003): mean |energy error| ${before.toFixed(2)} dB → ${after.toFixed(2)} dB`);
+  }
   const levels = compressSplatField(splats, Array.from({ length: args.bands }, (_, i) => i + 1));
   const manifest = buildSplatManifest(splats, levels);
 
   const prefix = resolve(args.out);
   writeFileSync(`${prefix}.field.json`, JSON.stringify(serializeSplatField(splats, splatFieldBandCount(splats)), null, 2) + "\n");
   writeFileSync(`${prefix}.manifest.json`, JSON.stringify({ ...manifest, schemaVersion: "0.1.0" }, null, 2) + "\n");
+  writeFileSync(
+    `${prefix}.samples.json`,
+    JSON.stringify(
+      { schemaVersion: "0.1.0", probes: probes.map((p) => ({ position: p.position, energy: p.energy, bandEnergies: p.bandEnergies })) },
+      null,
+      2
+    ) + "\n"
+  );
   // Full renderable scene = original document + splat-field override layer.
   const sceneDocument = parseAudioUsd(readFileSync(resolve(args.scene), "utf8"));
   const fieldDocument = await new SplatFieldConverter().convert(splats);
   sceneDocument.layers.push({ name: "splat-field", prims: fieldDocument.layers[0].prims });
   writeFileSync(`${prefix}.audio_usd.json`, serializeAudioUsd(sceneDocument));
 
-  console.log(`splats: ${splats.primitives.length} (SH band count ${splatFieldBandCount(splats)})`);
+  console.log(`splats: ${splats.primitives.length} (SH band count ${splatFieldBandCount(splats)}, ${args.fieldBands} field band(s))`);
   console.log("LOD table (directional-energy error vs. full field):");
   for (const level of manifest.levels) {
     console.log(
@@ -135,7 +177,7 @@ async function main(): Promise<void> {
       `~${(level.bytesApprox / 1024).toFixed(1)} KiB, error ${level.errorDb.toFixed(2)} dB`
     );
   }
-  console.log(`wrote ${prefix}.field.json / .manifest.json / .audio_usd.json`);
+  console.log(`wrote ${prefix}.field.json / .manifest.json / .samples.json / .audio_usd.json`);
 }
 
 main().catch((error) => {

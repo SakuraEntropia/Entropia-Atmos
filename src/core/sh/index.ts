@@ -10,5 +10,6 @@ export {
   shEnergyErrorDb,
   fibonacciDirections,
   doaToSpherical,
+  solveDenseLinearSystem,
 } from "./sh";
 export type { DirectionSample, WeightedDirectionSample } from "./sh";

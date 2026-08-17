@@ -22,7 +22,8 @@ export interface DatasetSource {
   signalAssets: string[];
 }
 
-/** A voxelized directional sound field: per-voxel SH coefficients. */
+/** A voxelized directional sound field: per-voxel SH coefficients.
+ * `bands` = 1 (broadband energy) or 4 (per-analysis-band energy, 0004). */
 export interface VoxelField {
   /** Voxel grid resolution per axis. */
   resolution: [number, number, number];
@@ -32,7 +33,9 @@ export interface VoxelField {
   origin: Vec3;
   /** Spherical-harmonics band count per voxel. */
   bandCount: number;
-  /** Per-voxel SH coefficients, voxels × bandCount², x-fastest order. */
+  /** Analysis-band count (1 or 4). */
+  bands: number;
+  /** Per-voxel SH coefficients, voxels × bands × bandCount², x-fastest. */
   coefficients: Float32Array;
 }
 

@@ -102,11 +102,12 @@ export function shWeightedLeastSquaresFit(samples: WeightedDirectionSample[], ba
     }
   }
   for (let i = 0; i < size; i++) ata[i * size + i] += ridge;
-  return solveLinearSystem(ata, atb);
+  return solveDenseLinearSystem(ata, atb);
 }
 
-/** Gaussian elimination with partial pivoting (small dense systems). */
-function solveLinearSystem(a: Float64Array, b: Float64Array): Float64Array {
+/** Gaussian elimination with partial pivoting (small dense systems).
+ * Exported for reuse by downstream least-squares tooling. */
+export function solveDenseLinearSystem(a: Float64Array, b: Float64Array): Float64Array {
   const n = b.length;
   for (let col = 0; col < n; col++) {
     let pivot = col;

@@ -21,3 +21,9 @@ export {
   SPLAT_FIELD_SCHEMA_VERSION,
 } from "./fieldSynthesis";
 export type { SerializedSplatField, SplatManifest, SplatManifestLevel } from "./fieldSynthesis";
+export type { ProbeEnergy } from "./calibration";
+export {
+  calibrateSplatOpacities,
+  predictProbeEnergy,
+  calibrationErrorDb,
+} from "./calibration";
