@@ -231,3 +231,16 @@ body {
 .anode-assets { padding: 4px 10px; display: flex; flex-direction: column; gap: 4px; }
 .anode-thumb { width: 100%; height: 56px; object-fit: cover; border-radius: 5px; border: 1px solid #2c3340; background: #101318; }
 .anode-thumb.empty { display: flex; align-items: center; justify-content: center; color: #5c6773; font-size: 10.5px; }
+
+/* self-contained workspace tab bar */
+.workspace-tabs-wrap { position: relative; }
+.tab-menu-overlay { position: fixed; inset: 0; z-index: 380; }
+.tab-menu {
+  position: absolute; top: calc(100% + 6px); left: 0; min-width: 230px; z-index: 390;
+  background: #1d2229; border: 1px solid #2c3340; border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.45); padding: 4px;
+}
+.tab-menu-title { font-weight: 600; font-size: 11px; letter-spacing: 0.06em; color: #8a97a3; padding: 6px 10px 4px; }
+.tab-menu-item { padding: 6px 10px; border-radius: 5px; cursor: pointer; color: #c3cdd6; font-size: 12.5px; }
+.tab-menu-item:hover { background: #2a3240; color: #ff9d4d; }
+.tab-menu-hint { display: block; font-size: 10.5px; color: #5c6773; margin-top: 2px; }

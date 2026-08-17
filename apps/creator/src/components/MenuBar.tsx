@@ -7,7 +7,7 @@
  * live under File, Blender-style.
  */
 import { useEffect, useRef, useState } from "react";
-import { WorkspaceTabs, type WorkspaceInstance, type WorkspacePreset } from "entropia-template-ui";
+import type { WorkspaceInstance, WorkspacePreset } from "entropia-template-ui";
 import {
   addPrim,
   bakeField,
@@ -183,24 +183,22 @@ export function MenuBar(props: MenuBarProps) {
           )}
         </div>
       ))}
-      <div className="workspace-tabs-wrap">
-        <WorkspaceTabs
-          workspaces={props.workspaces}
-          activeId={props.activeId}
-          presets={props.presets}
-          onSwitch={(id) => {
-            props.onSwitch(id);
-            const instance = props.workspaces.find((w) => w.id === id);
-            if (instance) setWorkspace(instance.name.toLowerCase() as WorkspaceId);
-          }}
-          onAdd={props.onAdd}
-          onRemove={props.onRemove}
-          onRename={props.onRename}
-          onDuplicate={props.onDuplicate}
-          onMove={props.onMove}
-          onReorder={props.onReorder}
-        />
-      </div>
+      <TabBar
+        workspaces={props.workspaces}
+        activeId={props.activeId}
+        presets={props.presets}
+        onSwitch={(id) => {
+          props.onSwitch(id);
+          const instance = props.workspaces.find((w) => w.id === id);
+          if (instance) setWorkspace(instance.name.toLowerCase() as WorkspaceId);
+        }}
+        onAdd={props.onAdd}
+        onRemove={props.onRemove}
+        onRename={props.onRename}
+        onDuplicate={props.onDuplicate}
+        onMove={props.onMove}
+        onReorder={props.onReorder}
+      />
       <div className="menubar-options">
         <button
           className={`menu-opt ${snapEnabled ? "active" : ""}`}
@@ -220,6 +218,102 @@ export function MenuBar(props: MenuBarProps) {
           <option value="local">Local</option>
         </select>
       </div>
+    </div>
+  );
+}
+
+/** Self-contained workspace tab bar (no external dependency on the
+ * template's WorkspaceTabs): click to switch, "+" preset menu, right-click
+ * context (rename/duplicate/move/remove), drag to reorder. */
+function TabBar({
+  workspaces,
+  activeId,
+  presets,
+  onSwitch,
+  onAdd,
+  onRemove,
+  onRename,
+  onDuplicate,
+  onMove,
+  onReorder,
+}: {
+  workspaces: WorkspaceInstance[];
+  activeId: string;
+  presets: WorkspacePreset[];
+  onSwitch: (id: string) => void;
+  onAdd: (presetId: string) => void;
+  onRemove: (id: string) => void;
+  onRename: (id: string, name: string) => void;
+  onDuplicate: (id: string) => void;
+  onMove: (id: string, delta: number) => void;
+  onReorder: (id: string, targetId: string) => void;
+}) {
+  const [addOpen, setAddOpen] = useState(false);
+  const [ctx, setCtx] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+
+  return (
+    <div className="workspace-tabs-wrap">
+      <div className="workspace-tabs">
+        {workspaces.map((ws) => (
+          <button
+            key={ws.id}
+            className={`workspace-tab ${ws.id === activeId ? "active" : ""}`}
+            draggable
+            onDragStart={() => setDragId(ws.id)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => {
+              if (dragId && dragId !== ws.id) onReorder(dragId, ws.id);
+              setDragId(null);
+            }}
+            onClick={() => onSwitch(ws.id)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setCtx({ id: ws.id, x: e.clientX, y: e.clientY });
+            }}
+          >
+            {ws.name}
+          </button>
+        ))}
+        <button className="workspace-add" title="Add workspace" onClick={() => setAddOpen((o) => !o)}>
+          +
+        </button>
+      </div>
+      {addOpen && (
+        <>
+          <div className="tab-menu-overlay" onClick={() => setAddOpen(false)} />
+          <div className="tab-menu">
+            <div className="tab-menu-title">Add workspace</div>
+            {presets.map((preset) => (
+              <div
+                key={preset.id}
+                className="tab-menu-item"
+                onClick={() => {
+                  onAdd(preset.id);
+                  setAddOpen(false);
+                }}
+              >
+                {preset.label}
+                <span className="tab-menu-hint">{preset.description}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {ctx && (
+        <>
+          <div className="tab-menu-overlay" onClick={() => setCtx(null)} />
+          <div className="tab-menu" style={{ left: ctx.x, top: ctx.y }}>
+            <div className="tab-menu-item" onClick={() => { const name = window.prompt("Workspace name", workspaces.find((w) => w.id === ctx.id)?.name ?? ""); if (name) onRename(ctx.id, name); setCtx(null); }}>
+              Rename
+            </div>
+            <div className="tab-menu-item" onClick={() => { onDuplicate(ctx.id); setCtx(null); }}>Duplicate</div>
+            <div className="tab-menu-item" onClick={() => { onMove(ctx.id, -1); setCtx(null); }}>Move Left</div>
+            <div className="tab-menu-item" onClick={() => { onMove(ctx.id, 1); setCtx(null); }}>Move Right</div>
+            <div className="tab-menu-item" onClick={() => { onRemove(ctx.id); setCtx(null); }}>Remove</div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
