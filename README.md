@@ -40,7 +40,7 @@ Audio Output
 ## Quick start
 
 ```bash
-git clone --recursive https://github.com/SakuraEntropia/entropia-atmos.git
+git clone --recursive https://github.com/SakuraEntropia/Entropia-Atmos.git
 cd entropia-atmos
 npm install
 npm run typecheck

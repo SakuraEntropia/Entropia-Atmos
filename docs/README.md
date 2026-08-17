@@ -46,7 +46,7 @@ It exists for three communities at once:
 ## Repository layout
 
 ```
-entropia-atmos/
+entropia-atmos/                  (GitHub: SakuraEntropia/Entropia-Atmos)
 ├── docs/                       ← you are here: SPEC, ARCHITECTURE, ROADMAP
 ├── src/                        ← the engine foundation (TypeScript contracts)
 │   ├── core/
