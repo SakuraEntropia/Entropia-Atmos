@@ -136,16 +136,20 @@ renderer, analogous to the rendered image buffer in graphics.
 **Components:**
 
 - **DSP graph** — compile-time node graph (sources, convolvers, mixers,
-  panners, meters). Block-based processing contract; offline today,
-  real-time-safe scheduling later.
+  panners, meters). Block-based processing contract: offline via the
+  overlap-add convolver, real-time via the uniformly partitioned
+  overlap-save `StreamingConvolver` (one-block latency) and the
+  `RealtimeBinauralRenderer` (scene-IR crossfade on listener moves).
 - **Acoustic-BRDF** — evaluates a material's directional reflection response
   for engine-driven shading (i.e., how reflection paths are weighted and
-  filtered per material).
+  filtered per material). Implemented surface: per-band path FIRs from
+  material band coefficients (4th-order Butterworth octave bank).
 - **HRTF** — dataset abstraction (SOFA-style), direction lookup, interpolation,
-  personalization hooks.
+  personalization hooks. Implemented: parametric spherical-head model
+  (Woodworth ITD + head shadow) and JSON HRIR bank loader.
 - **Binaural rendering** — partitioned convolution of source audio with
-  DIRs through per-direction HRTFs → 2-channel output. GPU acceleration is a
-  Phase 3 TODO behind the `AcousticRenderer` contract.
+  DIRs through per-direction HRTFs → 2-channel output, offline and
+  real-time. GPU acceleration is a Phase 3 TODO behind the same contracts.
 
 ### 3.5 Data Layer
 
@@ -156,14 +160,17 @@ renderer, analogous to the rendered image buffer in graphics.
 - **AudioGS** — sound-field representation as localized Gaussian primitives
   with directional spectral content (see
   [AudioGS, arXiv 2604.08967](https://arxiv.org/abs/2604.08967)). The
-  dataset pipeline (`src/tools/dataset`) covers ingestion → voxelization →
-  training → evaluation.
+  dataset pipeline (`src/tools/dataset`) implements ingestion →
+  voxelization → splat projection → calibration → training adapters →
+  evaluation.
 - **SH compression** — spherical-harmonics projection of directional data
   (AudioGS coefficients, directivity, HRTF subsets) with per-band error
-  budgets and levels of detail.
+  budgets and levels of detail; `selectLod` streams levels by measured
+  error (`tools/dataset/streaming`).
 - **Scene storage** — Audio-USD save/load, content-addressed caching of
   baked artifacts (DIRs, splat fields, IR banks), schema versioning and
-  migration.
+  migration. Content packs (`plugins/packaging`) bundle scenes for
+  delivery targets.
 
 ---
 
@@ -215,12 +222,12 @@ Two loops are worth calling out:
 
 | Layer | Repository location |
 |---|---|
-| Application | `Entropia-Template-UI_atmos/` (adopted template, Phase 4) |
+| Application | `apps/creator/` (ENTRO workspaces + backend; extends the template) |
 | Scene | `src/core/audio_scene/` (model), `src/formats/audio_usd/` (format) |
-| Engine | `src/core/acoustic_engine/` |
-| Rendering | `src/core/renderer/`, `src/core/dsp/` |
-| Data | `src/tools/dataset/`, `src/tools/converter/`, scene storage contracts |
-| Plugins | `src/plugins/vst/`, `src/plugins/au/` |
+| Engine | `src/core/acoustic_engine/` (image-source, ray-tracing, splat-field solvers) |
+| Rendering | `src/core/renderer/`, `src/core/dsp/` (incl. `dsp/realtime/`) |
+| Data | `src/core/sh/`, `src/tools/dataset/`, `src/tools/converter/` |
+| Plugins | `src/plugins/` (bridges, ScenePlugin, host simulator, packaging) |
 | Research | `src/research/papers/`, `src/research/experiments/` |
 
 See `src/README.md` for the dependency rules between these modules.
@@ -250,11 +257,11 @@ See `src/README.md` for the dependency rules between these modules.
 | Decision | Choice | Rationale |
 |---|---|---|
 | Contract language for the core | TypeScript interfaces + `TODO` markers | Matches the template's language and toolchain; cheap to evolve; trivially bound from a future native core |
-| Hot-path implementation (later) | Native (Rust/C++ with GPU backends) behind the TS contracts | Real-time + GPU needs; kept optional so the foundation stays dependency-free |
-| Training tooling (later) | Python (PyTorch) as a dataset-side adapter | Research ecosystem; AudioGS literature is PyTorch-first |
+| Hot-path implementation (later) | Native (Rust/C++ with GPU backends) behind the TS contracts | Real-time + GPU needs; kept optional so the foundation stays dependency-free. The TS real-time core already holds 41.7× headroom at 512/48 kHz |
+| Training tooling | Python (PyTorch) as a dataset-side adapter | Research ecosystem; AudioGS literature is PyTorch-first |
 | Scene format | Audio-USD, JSON-first, USD-crate later | Start with a readable, diffable format; binary USD compatibility is an adapter, not a rewrite |
-| Intermediate representation | DIR (directional impulse response) | Decouples solvers from renderers; enables caching |
-| UI shell | Adopt `Entropia-Template-UI_atmos` unchanged | The template is the foundation; extension happens through its existing preset/registry mechanisms |
+| Intermediate representation | DIR (directional impulse response) | Decouples solvers from renderers; enables caching and scene-IR baking |
+| UI shell | Adopt `Entropia-Template-UI_atmos` as a component library (`file:` submodule) | The template is the foundation; the creator app extends it through its existing registry/preset mechanisms |
 
 ---
 
