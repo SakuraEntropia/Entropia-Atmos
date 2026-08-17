@@ -24,8 +24,8 @@ import {
   leaf,
   split,
   registerPanelContent,
+  setPanelTypeVisibility,
   type AreaNode,
-  type WorkspaceInstance,
 } from "entropia-template-ui";
 import { useCreatorStore } from "./state/sceneStore";
 import { Viewport3D } from "./components/Viewport3D";
@@ -41,15 +41,9 @@ registerPanelContent("canvas", () => <Viewport3D />);
 registerPanelContent("inspector", () => <Inspector />);
 registerPanelContent("nodes", () => <LeftWorkspacePanel />);
 registerPanelContent("status", () => <StatusBar />);
-// Legacy template panels not used by ENTRO ATMOS: replaced with a clean
-// placeholder instead of broken ML-editor content.
-for (const type of ["files", "project", "loss", "plugins", "code", "pad", "docs"]) {
-  registerPanelContent(type, () => (
-    <div className="scene-panel">
-      <div className="scene-item muted">This panel is not used in ENTRO ATMOS.</div>
-    </div>
-  ));
-}
+// Delete every legacy template panel from the UI: only the four audio
+// panels remain in the panel-type dropdown.
+setPanelTypeVisibility(["nodes", "canvas", "inspector", "status"]);
 
 function LeftWorkspacePanel() {
   const workspace = useCreatorStore((s) => s.workspace);
@@ -78,6 +72,7 @@ function entroLayout(): AreaNode {
 }
 
 export function EntroApp() {
+  const document = useCreatorStore((s) => s.document);
   const logLine = useCreatorStore((s) => s.logLine);
   const loadDocument = useCreatorStore((s) => s.loadDocument);
   const [root, setRoot] = useState<AreaNode>(() => entroLayout());
@@ -100,7 +95,7 @@ export function EntroApp() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#14161a", color: "#d6dde4" }}>
-      <Titlebar />
+      <Titlebar title={document?.name ? `${document.name}.audio_usd` : undefined} appName="ENTRO ATMOS" />
       <MenuBar />
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
         <LayoutTree
