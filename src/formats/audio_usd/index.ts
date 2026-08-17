@@ -5,7 +5,7 @@
  */
 export { AUDIO_USD_SCHEMA_VERSION } from "./schema";
 export type { AudioUsdPrim, AudioUsdPrimType, AudioUsdLayer } from "./schema";
-export type { AudioUsdDocument } from "./audioUsdDocument";
+export type { AudioUsdDocument, AudioUsdRoom } from "./audioUsdDocument";
 export { createDocument, flattenPrims, toAudioScene } from "./audioUsdDocument";
 export { parseAudioUsd } from "./loader";
 export { serializeAudioUsd } from "./writer";

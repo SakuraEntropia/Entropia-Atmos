@@ -32,6 +32,8 @@ export interface LateField {
   bands: LateBand[];
   /** Synthesized late-tail IR (mono; decorrelated per ear at render time). */
   samples: Float32Array;
+  /** Optional decorrelated per-ear late-tail IRs, synthesized by the engine. */
+  stereo?: { left: Float32Array; right: Float32Array };
 }
 
 export interface DirectionalImpulseResponse {

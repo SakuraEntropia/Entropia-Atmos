@@ -12,13 +12,19 @@ export interface ReverbRequest {
   sampleRate: Hertz;
 }
 
+/** Decorrelated per-ear late-tail impulse responses. */
+export interface StereoImpulseResponse {
+  left: Float32Array;
+  right: Float32Array;
+}
+
 export interface ReverbSystem {
   /** Estimate per-band decay (T60) and energy from scene volume and mean
    * absorption.
    * TODO: Eyring/Sabine estimation; ray-based energy histograms. */
   estimateLateField(request: ReverbRequest): Promise<LateField>;
 
-  /** Synthesize a decorrelated late-tail IR from a decay estimate.
+  /** Synthesize decorrelated late-tail IRs from a decay estimate.
    * TODO: feedback delay networks (FDN); velvet noise; modal synthesis. */
-  synthesize(request: ReverbRequest, estimate: LateField): Promise<Float32Array>;
+  synthesize(request: ReverbRequest, estimate: LateField): Promise<StereoImpulseResponse>;
 }

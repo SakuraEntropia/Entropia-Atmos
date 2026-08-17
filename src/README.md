@@ -8,11 +8,13 @@ or an explicit **TODO**. Nothing pretends to work.
 
 | Module | Responsibility | Depends on |
 |---|---|---|
-| `core/audio_scene/` | In-memory scene model: emitter, listener, environment, material. Pure data + validation. | — (nothing) |
-| `formats/audio_usd/` | Audio-USD serialization (JSON-first) and document model. | `core/audio_scene` |
-| `core/acoustic_engine/` | Geometry processing, ray tracing, acoustic simulation, reverberation. Produces directional impulse responses (DIRs). | `core/audio_scene` |
-| `core/dsp/` | Audio blocks and DSP graphs with compile-time scheduling. | `core/audio_scene` (unit types only) |
-| `core/renderer/` | Acoustic-BRDF, HRTF datasets, binaural rendering orchestration. | `core/audio_scene`, `core/acoustic_engine`, `core/dsp` |
+| `core/audio_scene/` | In-memory scene model: emitter, listener, environment, material, room. Pure data + validation. | — (nothing) |
+| `formats/audio_usd/` | Audio-USD serialization (JSON-first), document model, validated `toAudioScene` mapping. | `core/audio_scene` |
+| `formats/wav/` | RIFF/WAVE PCM 8/16/24/32 + float32 read/write. | — |
+| `core/acoustic_engine/` | Image-source solver, FDN reverb, Sabine T60, ISO 9613-1 air absorption, engine wiring. Produces DIRs. | `core/audio_scene` |
+| `core/dsp/` | Audio blocks, FFT overlap-add convolution, node library, graph scheduling. | `core/audio_scene` (unit types only) |
+| `core/renderer/` | Acoustic-BRDF contract, HRTF (parametric + JSON), offline binaural rendering. | `core/audio_scene`, `core/acoustic_engine`, `core/dsp` |
+| `tools/cli/` | Headless renderer: scene → bake → binaural WAV. | formats, core modules |
 | `tools/dataset/` | AudioGS pipeline: ingestion → voxelization → training → compression → streaming. | `core/audio_scene` |
 | `tools/converter/` | Format converters and their registry; Audio-USD is the hub format. | `formats/audio_usd` |
 | `plugins/vst/`, `plugins/au/` | Host bridge contracts for VST3 / Audio Unit delivery. | `core/dsp`, `formats/audio_usd` |
@@ -40,19 +42,23 @@ or an explicit **TODO**. Nothing pretends to work.
 | Module | Status |
 |---|---|
 | `core/audio_scene` | Contracts + structural validation (implemented) |
-| `core/acoustic_engine` | Contracts only; solver implementations are Phase 1 TODOs |
-| `core/dsp` | Block types + graph scheduling (implemented); node library is Phase 1 TODO |
-| `core/renderer` | Contracts only; convolution/HRTF are Phase 1 TODOs, GPU is Phase 3 |
-| `formats/audio_usd` | Document model + JSON parse/serialize (implemented); prim→scene mapping is Phase 1 TODO |
+| `core/acoustic_engine` | Image-source solver, FDN reverb, air absorption, engine wiring (implemented); ray tracer/GPU TODO |
+| `core/dsp` | FFT overlap-add convolution, node library, graph scheduling (implemented); real-time scheduling TODO (Phase 3) |
+| `core/renderer` | Offline binaural renderer, parametric + JSON HRTF (implemented); Acoustic-BRDF/GPU TODO |
+| `formats/audio_usd` | Document model, JSON parse/serialize, `toAudioScene` v0 mapping (implemented) |
+| `formats/wav` | PCM/float32 read/write (implemented) |
+| `tools/cli` | Headless render CLI (implemented) |
 | `tools/dataset` | Contracts only (Phase 2) |
 | `tools/converter` | Registry (implemented); concrete converters are Phase 2 TODOs |
 | `plugins/*` | Contracts only (Phase 5) |
 
-## Typecheck
+## Checks & usage
 
 ```bash
-npm run typecheck   # from the repository root
+npm run typecheck   # strict TypeScript across all contracts and implementations
+npm test            # vitest: 28 tests (formats, FFT, DSP, solvers, HRTF, pipeline)
+npm run render -- examples/shoebox.audio_usd.json --impulse --out out.wav
 ```
 
-There is no build output yet by design: this foundation is documentation and
-contracts. See `docs/ROADMAP.md` for what gets implemented when.
+Implemented code is honest and testable; everything else remains an
+interface plus a phased TODO. See `docs/ROADMAP.md` for what is next.

@@ -3,7 +3,7 @@ import type { AcousticEnvironment } from "./environment";
 import type { AcousticMaterial } from "./material";
 import type { SoundEmitter } from "./emitter";
 import type { SoundListener } from "./listener";
-import type { Transform } from "./types";
+import type { Transform, Vec3 } from "./types";
 
 /** A geometry asset reference consumed by the engine's geometry processor. */
 export interface GeometryRef {
@@ -12,6 +12,14 @@ export interface GeometryRef {
   /** Optional acoustic material applied to the surface. */
   materialId?: string;
   transform: Transform;
+}
+
+/** Optional rectangular room box that enables shoebox solvers (image source). */
+export interface RoomBox {
+  min: Vec3;
+  max: Vec3;
+  /** Optional acoustic material applied to all six walls. */
+  wallMaterialId?: string;
 }
 
 export interface AudioScene {
@@ -25,6 +33,8 @@ export interface AudioScene {
   materials: AcousticMaterial[];
   environments: AcousticEnvironment[];
   geometry: GeometryRef[];
+  /** Optional shoebox room descriptor for image-source style solvers. */
+  room?: RoomBox;
 }
 
 export interface SceneValidationIssue {

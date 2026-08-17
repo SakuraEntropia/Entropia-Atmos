@@ -27,6 +27,7 @@ export function parseAudioUsd(json: string): AudioUsdDocument {
   if (typeof raw.unitsPerMeter !== "number" || raw.unitsPerMeter <= 0) {
     throw new Error("unitsPerMeter must be a number > 0");
   }
+  if (raw.name !== undefined && typeof raw.name !== "string") throw new Error("name must be a string");
   if (!Array.isArray(raw.layers)) throw new Error("missing array field 'layers'");
 
   const layers = raw.layers.map((layer, layerIndex) => {
@@ -55,10 +56,31 @@ export function parseAudioUsd(json: string): AudioUsdDocument {
     return { name: layer.name, prims };
   });
 
+  let room: AudioUsdDocument["room"];
+  if (raw.room !== undefined) {
+    if (!isRecord(raw.room)) throw new Error("room must be an object");
+    const min = raw.room.min;
+    const max = raw.room.max;
+    const isVec = (v: unknown): v is number[] =>
+      Array.isArray(v) && v.length === 3 && v.every((n) => typeof n === "number" && Number.isFinite(n));
+    if (!isVec(min)) throw new Error("room.min must be [x, y, z] numbers");
+    if (!isVec(max)) throw new Error("room.max must be [x, y, z] numbers");
+    if (raw.room.wallMaterialId !== undefined && typeof raw.room.wallMaterialId !== "string") {
+      throw new Error("room.wallMaterialId must be a string");
+    }
+    room = {
+      min: [min[0], min[1], min[2]],
+      max: [max[0], max[1], max[2]],
+      wallMaterialId: raw.room.wallMaterialId as string | undefined,
+    };
+  }
+
   return {
     schemaVersion: raw.schemaVersion,
+    name: typeof raw.name === "string" ? raw.name : undefined,
     upAxis: raw.upAxis,
     unitsPerMeter: raw.unitsPerMeter,
     layers,
+    room,
   };
 }

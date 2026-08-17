@@ -116,16 +116,16 @@ The stable contracts between layers are what make the project modular:
 
 ## Getting started
 
-The foundation is documentation + interfaces, so the only tool needed today
-is a TypeScript compiler:
-
 ```bash
-npm install          # installs typescript (the single dev dependency)
-npm run typecheck    # validates all module contracts
+npm install                      # installs the four dev dependencies
+npm run typecheck                # validates all module contracts + implementations
+npm test                         # 28 unit tests (formats, FFT, DSP, solvers, HRTF, pipeline)
+npm run render -- examples/shoebox.audio_usd.json --impulse --out out.wav
 ```
 
-There is no build output yet — every module is a contract or a `TODO`. For
-the UI template, follow its own README:
+The last command runs the Phase 1 headless pipeline: Audio-USD scene →
+image-source + FDN simulation → HRTF binaural render → WAV. For the UI
+template, follow its own README:
 
 ```bash
 cd Entropia-Template-UI_atmos && npm install && npm run dev
@@ -149,8 +149,9 @@ cd Entropia-Template-UI_atmos && npm install && npm run dev
 
 ## Status
 
-**Phase 0 — Research Prototype (active).** The repository currently contains
-the documentation set, the module skeleton with interfaces and `TODO`
-markers, and the adopted UI template. See the
-[status board](./ROADMAP.md#status-board) and the
-[next steps](./ROADMAP.md) for where implementation begins.
+**Phase 1 — Minimum Viable Acoustic Renderer (in progress).** The offline
+pipeline is implemented and tested: Audio-USD → image-source + FDN → HRTF
+binaural → WAV, runnable with one command. Remaining Phase 1 work: benchmark
+harness vs. reference IRs, ray tracing for general geometry, per-band
+material filtering. See the [status board](./ROADMAP.md#status-board) and the
+[roadmap](./ROADMAP.md) for what comes next.

@@ -17,7 +17,7 @@ export interface DspPlan {
 
 export class DspGraph {
   private readonly nodes = new Map<string, DspNode>();
-  private readonly edges: DspEdge[] = [];
+  private readonly edgeList: DspEdge[] = [];
 
   addNode(node: DspNode): void {
     if (this.nodes.has(node.id)) throw new Error(`duplicate node id '${node.id}'`);
@@ -27,14 +27,14 @@ export class DspGraph {
   connect(from: DspEdge["from"], to: DspEdge["to"]): void {
     if (!this.nodes.has(from.nodeId)) throw new Error(`unknown node '${from.nodeId}'`);
     if (!this.nodes.has(to.nodeId)) throw new Error(`unknown node '${to.nodeId}'`);
-    this.edges.push({ from, to });
+    this.edgeList.push({ from, to });
   }
 
   /** Topologically order nodes; throws when the graph contains a cycle. */
   plan(): DspPlan {
     const indegree = new Map<string, number>();
     for (const id of this.nodes.keys()) indegree.set(id, 0);
-    for (const edge of this.edges) {
+    for (const edge of this.edgeList) {
       indegree.set(edge.to.nodeId, (indegree.get(edge.to.nodeId) ?? 0) + 1);
     }
 
@@ -43,7 +43,7 @@ export class DspGraph {
     while (ready.length > 0) {
       const id = ready.shift()!;
       order.push(id);
-      for (const edge of this.edges) {
+      for (const edge of this.edgeList) {
         if (edge.from.nodeId === id) {
           const next = indegree.get(edge.to.nodeId)! - 1;
           indegree.set(edge.to.nodeId, next);
@@ -59,6 +59,11 @@ export class DspGraph {
 
   get size(): number {
     return this.nodes.size;
+  }
+
+  /** The graph's edges (read-only view, for inspection and execution). */
+  get edges(): readonly DspEdge[] {
+    return this.edgeList;
   }
 }
 

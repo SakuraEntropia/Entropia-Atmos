@@ -17,6 +17,8 @@ export interface SimulationOptions {
   /** Solver id; "image-source" | "ray-tracing" in Phase 1, wave solvers later. */
   solver: string;
   maxReflectionOrder: number;
+  /** Target sample rate for DIR synthesis (path delays, late field). */
+  sampleRate: number;
   rayBudget?: number;
   lateFieldDurationSeconds?: number;
 }
@@ -42,8 +44,10 @@ export interface SolverRegistry {
 }
 
 export interface AcousticEngine {
-  readonly geometry: GeometryProcessor;
-  readonly rayTracer: RayTracer;
+  /** Optional; the MVP image-source solver does not need geometry processing. */
+  readonly geometry?: GeometryProcessor;
+  /** Optional; ray tracing arrives with general geometry (TODO Phase 1/3). */
+  readonly rayTracer?: RayTracer;
   readonly reverb: ReverbSystem;
   readonly solvers: SolverRegistry;
 

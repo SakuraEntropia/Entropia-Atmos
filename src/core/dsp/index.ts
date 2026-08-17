@@ -1,10 +1,11 @@
-/** DSP layer — block processing and compile-time graphs.
- *
- * Self-contained: imports only scene unit types. The renderer builds graphs
- * here; nothing in this module knows about scenes, HRTFs, or solvers.
- */
+/** DSP layer — block processing, compile-time graphs, FFT convolution. */
 export type { AudioBlock } from "./audioBlock";
 export { createAudioBlock, isCompatible } from "./audioBlock";
 export type { DspContext, DspNode } from "./dspNode";
 export type { DspEdge, DspPlan } from "./dspGraph";
 export { DspGraph } from "./dspGraph";
+export { fftInPlace, fftConvolve, directConvolve } from "./fft";
+export { SourceNode } from "./nodes/sourceNode";
+export { GainNode } from "./nodes/gainNode";
+export { SumNode } from "./nodes/sumNode";
+export { ConvolverNode } from "./nodes/convolverNode";

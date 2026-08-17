@@ -18,5 +18,5 @@ export type { SoundEmitter, EmitterKind, DirectivityBand, EmitterSignal } from "
 export type { SoundListener } from "./listener";
 export type { AcousticMaterial, AcousticBand } from "./material";
 export type { AcousticEnvironment, ReverbDefaults } from "./environment";
-export type { AudioScene, GeometryRef, SceneValidationIssue } from "./audioScene";
+export type { AudioScene, GeometryRef, RoomBox, SceneValidationIssue } from "./audioScene";
 export { validateScene } from "./audioScene";

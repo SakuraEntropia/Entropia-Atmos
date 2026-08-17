@@ -199,12 +199,32 @@ Audio-USD scene.
 
 | Phase | State | Current focus |
 |---|---|---|
-| 0 — Research Prototype | **Active** | docs + contracts (this repository state) |
-| 1 — MVP Renderer | Not started | blocked on Phase 0 exit criteria |
-| 2 — AudioGS | Not started | blocked on Phase 1 DIR pipeline |
+| 0 — Research Prototype | Active (background) | literature review, benchmark reference IRs |
+| 1 — MVP Renderer | **In progress** | offline MVP renderer shipped (v0.1.0); next: ray tracer for general geometry, per-band materials |
+| 2 — AudioGS | Not started | blocked on Phase 1 DIR pipeline maturity |
 | 3 — Real-Time | Not started | blocked on Phase 2 LOD streaming |
 | 4 — Creator App | Not started | template adopted, blocked on Phase 3 core |
 | 5 — Ecosystem | Not started | blocked on Phase 4 app + Phase 3 latency |
+
+### Phase 1 progress (v0.1.0)
+
+Implemented and tested (28 unit tests, `npm test`):
+
+- `formats/audio_usd` — v0 schema frozen; JSON parse/serialize + validated
+  `toAudioScene` mapping (emitter, listener, material, environment, geometry,
+  room).
+- `core/acoustic_engine` — `ImageSourceSolver` (Allen & Berkley, ±order
+  enumeration), `FdnReverbSystem` (Householder FDN + Sabine T60),
+  ISO 9613-1 air absorption, `DefaultAcousticEngine` + solver registry.
+- `core/renderer` — `SimpleBinauralRenderer` (FFT overlap-add), parametric
+  `SphericalHeadHrtf` (Woodworth ITD + head shadow), JSON HRIR bank loader.
+- `core/dsp` — FFT/overlap-add convolver, node library (source/gain/sum/
+  convolver), topological graph scheduling.
+- `formats/wav` — PCM 8/16/24/32 + float32 read/write.
+- `tools/cli` — headless renderer: `npm run render -- <scene> --impulse --out out.wav`.
+
+Remaining for Phase 1 exit: benchmark harness vs. reference IRs (energy
+error), ray tracer + general geometry, per-band material filtering.
 
 > Phases are gated by exit criteria, not by dates. Dates are added only when a
 > phase exits; see the experiment log for progress evidence.
