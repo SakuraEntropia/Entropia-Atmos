@@ -1,15 +1,19 @@
-/** ENTRO ATMOS creator backend (Phase 4).
+/** ENTRO ATMOS creator backend (Phase 4) — dependency-free node:http.
  *
- * A dependency-free node:http service exposing the engine core to the
- * creator UI through /api/* (the template's proxy target). Run with
- * `npm run server` (port 8100).
+ * Serves the engine core to the creator UI:
+ *   GET  /api/status               → version + available scene names
+ *   GET  /api/document?name=…      → raw Audio-USD scene JSON
+ *   POST /api/render               → {document, solver, order, rays, lateDuration} → binaural WAV path + metrics
+ *   POST /api/audiogs              → {document, grid, bands} → splat field + LOD table
+ *   POST /api/export               → {document} → WAV export summary
+ *   GET  /api/file?path=…          → serve rendered WAVs (restricted to /tmp/entro-*)
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { readFileSync, readdirSync, writeFileSync, existsSync } from "node:fs";
+import { resolve, join, basename } from "node:path";
 import { parseAudioUsd, toAudioScene } from "../../src/formats/audio_usd/index";
 import { encodeWav } from "../../src/formats/wav/index";
-import { validateScene } from "../../src/core/audio_scene/index";
+import { validateScene, type AudioScene } from "../../src/core/audio_scene/index";
 import {
   DefaultAcousticEngine,
   FdnReverbSystem,
@@ -24,7 +28,6 @@ import {
   buildSplatManifest,
   calibrateSplatOpacities,
   compressSplatField,
-  parseSplatField,
   projectFieldToSplats,
   sampleFieldWithImageSource,
   splatFieldBandCount,
@@ -41,31 +44,49 @@ function scenePath(name: string): string {
   return join(EXAMPLES, `${name}.audio_usd.json`);
 }
 
-function loadScene(name: string) {
-  const text = readFileSync(scenePath(name), "utf8");
+/** Parse a scene from either an inline document or a named example file. */
+function sceneFromBody(body: Record<string, unknown>): AudioScene {
+  let text: string;
+  if (body.document !== undefined) {
+    text = typeof body.document === "string" ? body.document : JSON.stringify(body.document);
+  } else if (typeof body.scene === "string") {
+    text = readFileSync(scenePath(body.scene), "utf8");
+  } else {
+    throw new Error("request needs 'document' or 'scene'");
+  }
   const scene = toAudioScene(parseAudioUsd(text));
   const issues = validateScene(scene);
   if (issues.length > 0) throw new Error(issues.map((i) => `${i.path}: ${i.message}`).join("; "));
   return scene;
 }
 
+/** Meshes for the ray-tracing solver: examples/shoebox.obj as assetId "box". */
+function meshes(): Map<string, { positions: Float32Array; triangles: Uint32Array }> {
+  const map = new Map<string, { positions: Float32Array; triangles: Uint32Array }>();
+  const objPath = join(EXAMPLES, "shoebox.obj");
+  if (existsSync(objPath)) map.set("box", parseObj(readFileSync(objPath, "utf8")));
+  return map;
+}
+
 function engine() {
   return new DefaultAcousticEngine({
     reverb: new FdnReverbSystem(),
-    solvers: [new ImageSourceSolver(), new RayTracingSolver(new Map()), new SplatFieldSolver()],
+    solvers: [new ImageSourceSolver(), new RayTracingSolver(meshes()), new SplatFieldSolver()],
   });
 }
 
 interface RenderBody {
-  scene: string;
+  document?: unknown;
+  scene?: string;
   solver: string;
   order: number;
-  impulse: boolean;
-  duration: number;
+  rays?: number;
+  lateDuration: number;
+  impulse?: boolean;
 }
 
-async function handleRender(body: RenderBody): Promise<string> {
-  const scene = loadScene(body.scene);
+async function handleRender(body: RenderBody): Promise<{ message: string; wavPath: string }> {
+  const scene = sceneFromBody(body as unknown as Record<string, unknown>);
   const hrtf = new SphericalHeadHrtf(SAMPLE_RATE);
   const renderer = new OfflineAcousticRenderer({
     engine: engine(),
@@ -73,8 +94,9 @@ async function handleRender(body: RenderBody): Promise<string> {
     simulation: {
       solver: body.solver,
       maxReflectionOrder: body.order,
+      rayBudget: body.rays,
       sampleRate: SAMPLE_RATE,
-      lateFieldDurationSeconds: body.duration,
+      lateFieldDurationSeconds: body.solver === "splat-field" ? 0 : body.lateDuration,
     },
   });
   const baked = await renderer.bake(scene, hrtf);
@@ -85,18 +107,20 @@ async function handleRender(body: RenderBody): Promise<string> {
     hrtf,
     SAMPLE_RATE
   );
-  const wavPath = `/tmp/entro-${body.scene}-${body.solver}.wav`;
+  const wavPath = `/tmp/entro-${Date.now()}.wav`;
   writeFileSync(wavPath, new Uint8Array(encodeWav(out.channels, SAMPLE_RATE, "float32")));
   const dir = baked.dirs.get(`${scene.emitters[0].id}:${scene.listeners[0].id}`);
-  return (
-    `rendered ${out.length} samples @ ${SAMPLE_RATE} Hz → ${wavPath}\n` +
-    `${dir?.early.length ?? 0} early paths, late T60 ≈ ${dir?.late.bands[0]?.t60Seconds.toFixed(2) ?? 0} s, solver ${body.solver}`
-  );
+  return {
+    wavPath,
+    message:
+      `rendered ${out.length} samples @ ${SAMPLE_RATE} Hz\n` +
+      `${dir?.early.length ?? 0} early paths, late T60 ≈ ${(dir?.late.bands[0]?.t60Seconds ?? 0).toFixed(2)} s, solver ${body.solver}`,
+  };
 }
 
-async function handleAudiogs(body: { scene: string; grid: number; bands: number }): Promise<string> {
-  const scene = loadScene(body.scene);
-  if (!scene.room) throw new Error("audiogs needs scene.room");
+async function handleAudiogs(body: { document?: unknown; scene?: string; grid: number; bands: number }): Promise<string> {
+  const scene = sceneFromBody(body as unknown as Record<string, unknown>);
+  if (!scene.room) throw new Error("audiogs needs scene.room (rectangular room)");
   const size = {
     x: scene.room.max.x - scene.room.min.x,
     y: scene.room.max.y - scene.room.min.y,
@@ -138,63 +162,16 @@ async function handleAudiogs(body: { scene: string; grid: number; bands: number 
   return `splats: ${splats.primitives.length} (SH bands ${splatFieldBandCount(splats)})\n` + lines.join("\n");
 }
 
-function handleExport(body: { scene: string; solver: string }): Promise<string> {
-  return handleRender({ ...body, order: 3, impulse: true, duration: 0.5 });
-}
-
-const NODES = [
-  {
-    type: "audio_source",
-    label: "Audio Source",
-    category: "Sources",
-    inputs: [],
-    outputs: [{ name: "signal", data_kind: "audio", required: true }],
-    parameters: [{ name: "level_db", kind: "float", default: 0, required: false, dtype: "float" }],
-  },
-  {
-    type: "convolver",
-    label: "Convolver (DIR)",
-    category: "Rendering",
-    inputs: [
-      { name: "signal", data_kind: "audio", required: true },
-      { name: "impulse_response", data_kind: "dir", required: true },
-    ],
-    outputs: [{ name: "wet", data_kind: "audio", required: true }],
-    parameters: [],
-  },
-  {
-    type: "binaural_mix",
-    label: "Binaural Mix",
-    category: "Rendering",
-    inputs: [{ name: "signal", data_kind: "audio", required: true }],
-    outputs: [{ name: "left", data_kind: "audio", required: true }, { name: "right", data_kind: "audio", required: true }],
-    parameters: [],
-  },
-  {
-    type: "acoustic_material",
-    label: "Acoustic Material",
-    category: "Shading",
-    inputs: [],
-    outputs: [{ name: "material", data_kind: "material", required: true }],
-    parameters: [
-      { name: "absorption_500", kind: "float", default: 0.1, required: false, dtype: "float" },
-      { name: "absorption_1000", kind: "float", default: 0.08, required: false, dtype: "float" },
-    ],
-  },
-  {
-    type: "fdn_reverb",
-    label: "FDN Reverb",
-    category: "Rendering",
-    inputs: [{ name: "signal", data_kind: "audio", required: true }],
-    outputs: [{ name: "wet", data_kind: "audio", required: true }],
-    parameters: [{ name: "t60_seconds", kind: "float", default: 1.2, required: false, dtype: "float" }],
-  },
-];
-
 function sendJson(res: ServerResponse, code: number, data: unknown): void {
   const body = JSON.stringify(data);
   res.writeHead(code, { "Content-Type": "application/json" });
   res.end(body);
+}
+
+async function readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(chunk as Buffer);
+  return chunks.length > 0 ? (JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>) : {};
 }
 
 async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -204,78 +181,47 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       const scenes = readdirSync(EXAMPLES)
         .filter((f) => f.endsWith(".audio_usd.json"))
         .map((f) => f.replace(/\.audio_usd\.json$/, ""));
-      sendJson(res, 200, { ok: true, version: "0.4.0", phase: "Phase 4 — creator application", scenes });
+      sendJson(res, 200, { ok: true, version: "0.5.0", phase: "Phase 4 — spatial audio workstation", scenes });
       return;
     }
-    if (req.method === "GET" && url.pathname === "/api/nodes") {
-      sendJson(res, 200, NODES);
+    if (req.method === "GET" && url.pathname === "/api/document") {
+      const name = url.searchParams.get("name") ?? "shoebox";
+      const text = readFileSync(scenePath(name), "utf8");
+      sendJson(res, 200, JSON.parse(text));
       return;
     }
-    if (req.method === "GET" && url.pathname === "/api/material/concrete") {
-      sendJson(res, 200, {
-        name: "Concrete",
-        bands: [
-          { centerHz: 500, absorption: 0.1 },
-          { centerHz: 1000, absorption: 0.08 },
-          { centerHz: 2000, absorption: 0.07 },
-          { centerHz: 4000, absorption: 0.06 },
-        ],
-      });
+    if (req.method === "GET" && url.pathname === "/api/file") {
+      const path = url.searchParams.get("path") ?? "";
+      if (!path.startsWith("/tmp/entro-") || path.includes("..")) {
+        sendJson(res, 403, { ok: false, error: "path not allowed" });
+        return;
+      }
+      if (!existsSync(path)) {
+        sendJson(res, 404, { ok: false, error: "file not found" });
+        return;
+      }
+      const data = readFileSync(path);
+      res.writeHead(200, { "Content-Type": "audio/wav", "Content-Length": data.length });
+      res.end(data);
       return;
     }
-    if (req.method === "POST" && url.pathname.startsWith("/api/")) {
-      let body: Record<string, unknown> = {};
-      if (req.method === "POST") {
-        const chunks: Buffer[] = [];
-        for await (const chunk of req) chunks.push(chunk as Buffer);
-        body = chunks.length > 0 ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : {};
-      }
-      if (url.pathname === "/api/scene/load") {
-        const scene = loadScene(String(body.name));
-        sendJson(res, 200, {
-          name: scene.name,
-          emitters: scene.emitters.length,
-          listeners: scene.listeners.length,
-          materials: scene.materials.length,
-          environments: scene.environments.length,
-          splatFields: scene.splatFields?.length ?? 0,
-          room: scene.room
-            ? `${(scene.room.max.x - scene.room.min.x).toFixed(1)}×${(scene.room.max.y - scene.room.min.y).toFixed(1)}×${(scene.room.max.z - scene.room.min.z).toFixed(1)} m`
-            : undefined,
-        });
-        return;
-      }
-      if (url.pathname === "/api/render") {
-        const message = await handleRender(body as unknown as RenderBody);
-        sendJson(res, 200, { ok: true, message });
-        return;
-      }
-      if (url.pathname === "/api/export") {
-        const message = await handleExport(body as { scene: string; solver: string });
-        sendJson(res, 200, { ok: true, message });
-        return;
-      }
-      if (url.pathname === "/api/audiogs") {
-        const message = await handleAudiogs(body as { scene: string; grid: number; bands: number });
-        sendJson(res, 200, { ok: true, message });
-        return;
-      }
-      if (url.pathname === "/api/bake") {
-        const scene = loadScene(String(body.scene));
-        const dir = await engine().simulate({
-          scene,
-          emitterId: scene.emitters[0].id,
-          listenerId: scene.listeners[0].id,
-          options: {
-            solver: "image-source",
-            maxReflectionOrder: Number(body.order ?? 3),
-            sampleRate: SAMPLE_RATE,
-            lateFieldDurationSeconds: Number(body.duration ?? 0.5),
-          },
-        });
-        sendJson(res, 200, { ok: true, paths: dir.early.length, t60: dir.late.bands[0]?.t60Seconds ?? 0 });
-        return;
-      }
+    if (req.method === "POST" && url.pathname === "/api/render") {
+      const body = (await readBody(req)) as unknown as RenderBody;
+      const result = await handleRender(body);
+      sendJson(res, 200, { ok: true, ...result });
+      return;
+    }
+    if (req.method === "POST" && url.pathname === "/api/audiogs") {
+      const body = (await readBody(req)) as { document?: unknown; scene?: string; grid: number; bands: number };
+      const message = await handleAudiogs(body);
+      sendJson(res, 200, { ok: true, message });
+      return;
+    }
+    if (req.method === "POST" && url.pathname === "/api/export") {
+      const body = (await readBody(req)) as unknown as RenderBody;
+      const result = await handleRender({ ...body, solver: body.solver ?? "image-source", order: 3, lateDuration: 0.5 });
+      sendJson(res, 200, { ok: true, message: `exported ${result.wavPath}\n${result.message}` });
+      return;
     }
     sendJson(res, 404, { ok: false, error: `no route: ${req.method} ${url.pathname}` });
   } catch (error) {
@@ -289,5 +235,5 @@ const server = createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`ENTRO ATMOS creator backend on http://localhost:${PORT} (examples: ${EXAMPLES})`);
-  void parseSplatField; // keep the import honest for future use
+  void basename;
 });

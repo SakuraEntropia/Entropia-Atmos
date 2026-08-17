@@ -283,14 +283,23 @@ Remaining for Phase 2 exit: differentiable PyTorch trainer (must beat the
   reference hardware.
 - TODO(Phase 3): native/GPU backends behind the existing contracts.
 
-### Phase 4 progress (v0.4.0)
+### Phase 4 progress (v0.5.0)
 
-- `apps/creator` — Vite app extending the template component library with
-  the five ENTRO workspaces, an ENTRO inspector panel (template's
-  `registerPanelContent` hook), and acoustic node definitions.
-- `apps/creator/server.ts` — dependency-free backend (`/api/status`,
-  `/api/nodes`, `/api/scene/load`, `/api/render`, `/api/audiogs`,
-  `/api/export`) driving the engine core; all endpoints smoke-tested.
+- `apps/creator` — purpose-built spatial audio workstation UI (custom
+  React + zustand + three.js, no template dependency):
+  - **3D Blender-style panner**: orbit/pan/zoom, click-select, drag
+    emitters and listeners on a camera-facing plane, room shell, head
+    orientation cone;
+  - audio panels: scene graph (emitters/listeners/materials/environments),
+    per-band material editor, contextual inspector (transform/kind/level/
+    yaw/temperature/humidity), simulation controls (solver/order/rays/late
+    field), transport (render → Web Audio binaural playback), log;
+  - the five ENTRO workspaces (Layout/Shading/Simulation/Bake/Delivery).
+- `apps/creator/server.ts` — dependency-free backend (`/api/document`,
+  `/api/render` accepting inline edited documents, `/api/file` with path
+  allow-list, `/api/audiogs`, `/api/export`); all endpoints smoke-tested.
+- The UI template submodule remains in the repository as the original
+  foundation and component library; the creator app is now self-contained.
 
 ### Phase 5 progress (v0.4.0)
 
