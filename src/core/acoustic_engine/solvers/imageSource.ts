@@ -12,13 +12,13 @@
  * - emitter directivity is ignored (TODO Phase 2).
  */
 import type { AcousticMaterial, AudioScene, Vec3 } from "../../audio_scene";
+import { ANALYSIS_BANDS, pathFirFromBandGains } from "../../dsp/bands";
 import type { DirectionalImpulseResponse, DirectionalPath } from "../impulseResponse";
 import type { SimulationRequest, Solver } from "../acousticEngine";
 import { airAbsorptionFactor } from "../airAbsorption";
 import { absorptionAt, reflectionAmplitude } from "../materialUtil";
 
 const SPEED_OF_SOUND_DEFAULT = 343; // m/s at 20 °C
-const ANALYSIS_FREQUENCY_HZ = 1000;
 
 interface EnvironmentView {
   temperatureCelsius: number;
@@ -44,7 +44,7 @@ export class ImageSourceSolver implements Solver {
   readonly id = "image-source";
   readonly description =
     "Allen & Berkley image-source method for rectangular rooms " +
-    "(MVP: 1 kHz band, single wall material, no directivity).";
+    "(per-band wall absorption, ISO 9613-1 air absorption, no directivity).";
 
   async simulate(request: SimulationRequest): Promise<DirectionalImpulseResponse> {
     const { scene, emitterId, listenerId, options } = request;
@@ -72,8 +72,9 @@ export class ImageSourceSolver implements Solver {
     const ear = listener.transform.position;
 
     const wallMaterial: AcousticMaterial | undefined = scene.materials.find((m) => m.id === room.wallMaterialId);
-    const absorption = absorptionAt(wallMaterial, ANALYSIS_FREQUENCY_HZ);
-    const wallReflection = reflectionAmplitude(absorption);
+    // Per-analysis-band wall reflection and air absorption coefficients.
+    const bandAbsorption = ANALYSIS_BANDS.map((band) => absorptionAt(wallMaterial, band.centerHz));
+    const bandReflection = bandAbsorption.map(reflectionAmplitude);
 
     const paths: DirectionalPath[] = [];
     for (let nx = -maxOrder; nx <= maxOrder; nx++) {
@@ -92,18 +93,20 @@ export class ImageSourceSolver implements Solver {
           const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
           if (distance < 1e-6) continue; // emitter on the listener: undefined DOA
 
-          let gain = 1 / distance;
-          if (reflections > 0) gain *= Math.pow(wallReflection, reflections);
-          gain *= airAbsorptionFactor(
-            distance,
-            ANALYSIS_FREQUENCY_HZ,
-            environment.temperatureCelsius,
-            environment.humidityPercent
-          );
+          const bandGains = ANALYSIS_BANDS.map((band, b) => {
+            let gain = 1 / distance;
+            if (reflections > 0) gain *= Math.pow(bandReflection[b], reflections);
+            gain *= airAbsorptionFactor(
+              distance,
+              band.centerHz,
+              environment.temperatureCelsius,
+              environment.humidityPercent
+            );
+            return gain;
+          });
 
           const delaySamples = Math.round((distance / environment.speedOfSound) * sampleRate);
-          const samples = new Float32Array(delaySamples + 1);
-          samples[delaySamples] = gain;
+          const samples = pathFirFromBandGains(bandGains, delaySamples, sampleRate);
 
           paths.push({
             azimuthRadians: Math.atan2(dx, dz),
@@ -111,6 +114,8 @@ export class ImageSourceSolver implements Solver {
             distanceMeters: distance,
             materialHits: Array(reflections).fill(wallMaterial?.id ?? "default-wall"),
             samples,
+            gain: bandGains[1],
+            bandGains,
           });
         }
       }

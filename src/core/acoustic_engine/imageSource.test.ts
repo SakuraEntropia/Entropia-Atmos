@@ -26,12 +26,14 @@ describe("ImageSourceSolver", () => {
     expect(path.azimuthRadians).toBeCloseTo(Math.atan2(1 - 3, 1.5 - 1.5), 6); // −π/2
     expect(path.elevationRadians).toBeCloseTo(Math.asin((1 - 3) / distance), 6); // −π/4
 
-    // Gain ≈ 1/d (air absorption is negligible over ~3 m).
-    expect(Math.abs(path.samples[path.samples.length - 1] * distance - 1)).toBeLessThan(0.005);
+    // Broadband gain ≈ 1/d (air absorption is negligible over ~3 m).
+    expect(Math.abs((path.gain ?? 0) * distance - 1)).toBeLessThan(0.005);
 
     const expectedDelay = Math.round((distance / SPEED_OF_SOUND) * SAMPLE_RATE);
-    expect(path.samples.length).toBe(expectedDelay + 1);
+    // Band-shaped FIR = delay + 512-sample filter tail.
+    expect(path.samples.length).toBe(expectedDelay + 512);
     expect(path.materialHits).toHaveLength(0);
+    expect(path.bandGains).toHaveLength(4);
   });
 
   it("enumerates first-order reflections and applies wall absorption", async () => {
@@ -50,7 +52,7 @@ describe("ImageSourceSolver", () => {
     expect(xWall).toBeDefined();
     const expectedDistance = Math.sqrt(4 * 4 + 2 * 2); // √20
     const expectedGain = Math.sqrt(1 - 0.08) / expectedDistance;
-    expect(Math.abs(xWall!.samples[xWall!.samples.length - 1] - expectedGain)).toBeLessThan(0.005);
+    expect(Math.abs((xWall!.gain ?? 0) - expectedGain)).toBeLessThan(0.005);
   });
 
   it("rejects scenes without a room descriptor", async () => {

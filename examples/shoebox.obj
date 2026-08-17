@@ -1,0 +1,15 @@
+# 5×4×3 m shoebox, 12 triangles (for the ray-tracing solver).
+v 0 0 0
+v 5 0 0
+v 5 0 3
+v 0 0 3
+v 0 4 0
+v 5 4 0
+v 5 4 3
+v 0 4 3
+f 1 4 3 2
+f 5 6 7 8
+f 1 2 6 5
+f 2 3 7 6
+f 3 4 8 7
+f 4 1 5 8

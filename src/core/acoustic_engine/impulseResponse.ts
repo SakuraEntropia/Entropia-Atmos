@@ -15,8 +15,13 @@ export interface DirectionalPath {
   distanceMeters: Meters;
   /** Material ids hit along the path, in hit order. */
   materialHits: string[];
-  /** Mono impulse response samples for this path. */
+  /** Mono impulse response samples for this path (band-shaped FIR). */
   samples: Float32Array;
+  /** Broadband amplitude gain (1 kHz band), for analysis and metrics. */
+  gain?: number;
+  /** Per-analysis-band amplitude gains (500/1000/2000/4000 Hz) when the
+   * solver emits band-shaped FIRs. */
+  bandGains?: number[];
 }
 
 /** A statistical late-field descriptor for one frequency band. */

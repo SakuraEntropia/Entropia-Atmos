@@ -59,8 +59,8 @@ export async function sampleFieldWithImageSource(
       directions: dir.early.map((path) => ({
         azimuthRadians: path.azimuthRadians,
         elevationRadians: path.elevationRadians,
-        // Path IR is a delayed impulse: the impulse value is the gain.
-        gain: path.samples[path.samples.length - 1],
+        // Broadband (1 kHz band) amplitude gain for the energy fit.
+        gain: path.gain ?? path.bandGains?.[1] ?? 0,
       })),
     });
   }
