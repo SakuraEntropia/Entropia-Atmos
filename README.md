@@ -124,5 +124,5 @@ dependencies. See [docs/README.md](./docs/README.md) for the full guide.
 
 ## License
 
-Core engine and docs: MIT (LICENSE file pending — add before 1.0). The UI
-template submodule keeps its own license (MIT, see its README).
+MIT — see [LICENSE](./LICENSE). The UI template submodule keeps its own
+license (MIT, see its README).
