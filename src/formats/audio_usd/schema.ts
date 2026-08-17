@@ -1,0 +1,30 @@
+/** Audio-USD schema: versioned prim definitions.
+ *
+ * Audio-USD is a layered scene description in the spirit of Pixar's USD,
+ * specialized for acoustics. v0 is JSON-first and intentionally minimal;
+ * binary USD compatibility is an adapter (Phase 2), not a rewrite.
+ */
+
+/** Bump when prim shapes change incompatibly; migrations are documented per
+ * bump and MUST ship with the change (SPEC M-04). */
+export const AUDIO_USD_SCHEMA_VERSION = "0.1.0";
+
+export type AudioUsdPrimType =
+  | "emitter"
+  | "listener"
+  | "material"
+  | "environment"
+  | "geometry";
+
+export interface AudioUsdPrim {
+  type: AudioUsdPrimType;
+  id: string;
+  name: string;
+  /** Type-specific fields, validated by the v0 schema table (see loader). */
+  payload: Record<string, unknown>;
+}
+
+export interface AudioUsdLayer {
+  name: string;
+  prims: AudioUsdPrim[];
+}

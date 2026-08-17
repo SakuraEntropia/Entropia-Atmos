@@ -1,0 +1,210 @@
+# ENTRO ATMOS — Roadmap
+
+> Status: Draft v0.1 (foundation)
+> Scope: development phases, deliverables, and exit criteria.
+> Companion documents: [SPEC.md](./SPEC.md), [ARCHITECTURE.md](./ARCHITECTURE.md), [README.md](./README.md).
+
+Phases are sequential in intent but overlap in practice: research tasks from
+Phase 0 continue in the background of every later phase, and interfaces for a
+phase are sketched one phase ahead so contracts never block progress.
+
+---
+
+## Phase 0 — Research Prototype
+
+**Goal:** establish the theoretical foundation and validate feasibility on
+one small scene end to end.
+
+**Scope**
+
+- Literature review pinned in `src/research/papers/`:
+  - AudioGS and acoustic neural fields (AudioGS arXiv 2604.08967, AV-GS,
+    Neural Acoustic Fields)
+  - geometric room acoustics (image source, ray/beam tracing)
+  - statistical reverberation (FDN / energy-decay models)
+  - HRTF datasets and binaural synthesis
+  - 3D Gaussian Splatting and SH compression techniques
+- Define the Audio-USD v0 schema (prims, layers, versioning).
+- Define the DIR (directional impulse response) contract.
+- Benchmark suite: 2–3 reference scenes with ground-truth IRs (measured or
+  high-accuracy image-source).
+
+**Deliverables**
+
+- `src/research/experiments/` log with a feasibility notebook per question.
+- Frozen Audio-USD v0 schema document.
+- Reference IR benchmark + evaluation script skeleton in `src/tools/dataset`.
+
+**Exit criteria**
+
+- A single emitter/listener pair in a shoebox scene renders a plausible
+  binaural impulse response from a handwritten pipeline (no engine yet).
+- The team can answer: which simulation method for which scene class, at what
+  cost/accuracy envelope.
+- Audio-USD v0 schema has survived one serialization round-trip review.
+
+---
+
+## Phase 1 — Minimum Viable Acoustic Renderer
+
+**Goal:** offline, headless, reproducible spatial audio rendering from an
+Audio-USD scene.
+
+**Scope**
+
+- `src/core/audio_scene` — full scene model + validation (pure data).
+- `src/formats/audio_usd` — JSON-first reader/writer + round-trip tests.
+- `src/core/acoustic_engine` — image-source + ray-tracing early reflections,
+  edge-diffraction pass, statistical late reverb (FDN), solver registry.
+- `src/core/dsp` — block-processing DSP graph with sources, convolvers,
+  mixers, gain, delay.
+- `src/core/renderer` — HRTF dataset interface (SOFA-style), Acoustic-BRDF
+  shading of reflection paths, partitioned-convolution binaural renderer.
+- CLI: one command renders `scene.audio_usd` → stereo/binaural WAV.
+
+**Deliverables**
+
+- `entropy-atmos render scene.audio_usd --out scene.wav` working headless.
+- Unit tests: serialization round-trips, DSP graph scheduling, IR energy
+  conservation checks.
+- Benchmark harness: per-scene render time and IR error vs. Phase 0 references.
+
+**Exit criteria**
+
+- Full pipeline runs from one scene file (SPEC FR-01…FR-14).
+- DIR energy error vs. reference below the Phase 0 threshold on all benchmark
+  scenes.
+- ≥ 80 % interface coverage by tests in the modules touched this phase.
+
+---
+
+## Phase 2 — AudioGS Integration
+
+**Goal:** neural sound-field representation as a first-class scene citizen.
+
+**Scope**
+
+- `src/tools/dataset` — ingestion of microphone-array recordings and
+  simulated fields; voxelization; training/eval split tooling.
+- AudioGS training adapter (PyTorch, dataset-side): Gaussian primitives with
+  spectrogram/SH directional content.
+- SH compression with LODs + streaming manifest; reconstruction error metrics
+  (spectral distance, directional energy error).
+- Engine integration: splat fields as an alternative scene representation
+  feeding the same renderer (hybrid geometric + neural).
+
+**Deliverables**
+
+- Trained AudioGS model for one benchmark scene with published eval numbers
+  in `src/research/experiments/`.
+- Compression LODs: 3 levels with measured error/latency trade-off.
+- Converter: splat field ↔ Audio-USD reference/override.
+
+**Exit criteria**
+
+- AudioGS reconstruction error improves monotonically per LOD.
+- Renderer consumes a splat field without API changes to `renderer`'s public
+  contracts (proving the DIR/scene contracts hold).
+- One preprint-quality write-up of the pipeline (SPEC M-08).
+
+---
+
+## Phase 3 — Real-Time Engine
+
+**Goal:** interactive listener movement at DAW-grade latency.
+
+**Scope**
+
+- Native core (Rust/C++ bindings behind the TS contracts) with GPU
+  acceleration: BVH ray queries, partitioned convolution, HRTF interpolation.
+- DIR interpolation / switching over listener movement; streaming LODs from
+  Phase 2 compression.
+- Real-time-safe DSP graph (lock-free scheduling, fixed block sizes, denormals
+  handling, latency budget).
+- `src/plugins/` host bridge contracts finalized (VST3/AU skeleton).
+
+**Deliverables**
+
+- Real-time render loop with < 20 ms added latency on the benchmark scenes.
+- Benchmark: CPU/GPU cost curves, listener-move transition quality (no
+  audible artifacts under stress test).
+- Plugin bridge proof-of-concept loading a baked scene.
+
+**Exit criteria**
+
+- Interactive head-tracked listening demo.
+- Latency and CPU/GPU budgets met on reference hardware (documented in
+  `src/research/experiments/`).
+
+---
+
+## Phase 4 — Creator Application
+
+**Goal:** make the engine usable by humans — "Blender for spatial audio".
+
+**Scope**
+
+- Adopt `Entropia-Template-UI_atmos` as the Application Layer (unchanged
+  shell; no redesign).
+- Add ENTRO workspace presets via the existing `WORKSPACE_PRESETS`
+  mechanism: **Bake / Layout / Shading / Simulation / Delivery**.
+- Acoustic node categories in the node library (sources, materials, solvers,
+  DSP, meters).
+- Backend service behind the template's `/api` proxy: scene CRUD, bake
+  jobs, DIR inspection, export.
+
+**Deliverables**
+
+- Creator application with the five ENTRO workspaces.
+- 3D viewport (debug aid) with emitter/listener manipulators.
+- Headless and GUI paths share 100 % of the engine code.
+
+**Exit criteria**
+
+- A sound designer, without reading engine docs, can: build a scene, assign
+  materials, bake, audition binaurally, and export.
+- UI demo video + user study (SPEC M-09 groundwork).
+
+---
+
+## Phase 5 — Plugin Ecosystem
+
+**Goal:** deliver ENTRO ATMOS scenes anywhere audio is made.
+
+**Scope**
+
+- VST3 plugin: load baked scene, render inside DAW, automation-addressable
+  listener/emitter/mix parameters.
+- AU plugin (macOS) with the same surface.
+- Plugin SDK: third-party solvers, materials, DSP nodes, and converter
+  registration with versioned, documented contracts.
+- Package/distribution tooling: signed bundles, upgrade paths, example
+  content pack.
+
+**Deliverables**
+
+- VST3 + AU builds passing host validation (e.g., in Reaper / Logic / Live).
+- SDK guide + one third-party example plugin (e.g., a custom reverb solver).
+- Content pack: example Audio-USD scenes + baked artifacts.
+
+**Exit criteria**
+
+- A DAW user loads a baked scene and renders in real time without ENTRO
+  tooling installed (SPEC F-13/F-14, M-10).
+- ≥ 1 external plugin exists that the core team did not write.
+
+---
+
+## Status Board
+
+| Phase | State | Current focus |
+|---|---|---|
+| 0 — Research Prototype | **Active** | docs + contracts (this repository state) |
+| 1 — MVP Renderer | Not started | blocked on Phase 0 exit criteria |
+| 2 — AudioGS | Not started | blocked on Phase 1 DIR pipeline |
+| 3 — Real-Time | Not started | blocked on Phase 2 LOD streaming |
+| 4 — Creator App | Not started | template adopted, blocked on Phase 3 core |
+| 5 — Ecosystem | Not started | blocked on Phase 4 app + Phase 3 latency |
+
+> Phases are gated by exit criteria, not by dates. Dates are added only when a
+> phase exits; see the experiment log for progress evidence.

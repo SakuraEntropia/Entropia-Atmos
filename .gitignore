@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+
+# Unrelated local projects that must not enter the ENTRO ATMOS repo.
+tree3/
+
+# Rendered audio outputs are build artifacts.
+examples/*.wav
+
+# Experiment artifacts are large; content-hash them and store elsewhere
+# (git-lfs) until the artifact policy is defined in Phase 0.
+src/research/experiments/*/artifacts/
