@@ -56,6 +56,11 @@ interface CreatorState {
   setRenderStatus(status: CreatorState["renderStatus"], wavPath?: string): void;
   /** Immutably update one prim's payload. */
   updatePayload(type: PrimType, id: string, updater: (payload: Record<string, unknown>) => void): void;
+  /** Remove the selected prim. */
+  deleteSelection(): void;
+  /** Ask the 3D viewport to reset its camera. */
+  viewportReset: number;
+  resetViewport(): void;
 }
 
 function stamp(): string {
@@ -107,6 +112,19 @@ export const useCreatorStore = create<CreatorState>((set, get) => ({
     set((s) => ({ renderStatus, renderedWavPath: renderedWavPath ?? s.renderedWavPath })),
   updatePayload: (type, id, updater) =>
     set((s) => ({ document: editDocument(s.document, type, id, updater) })),
+  deleteSelection: () =>
+    set((s) => {
+      if (!s.document || !s.selection) return {};
+      const layers = s.document.layers.map((layer) => ({
+        ...layer,
+        prims: layer.prims.filter(
+          (prim) => !(prim.type === s.selection!.type && prim.id === s.selection!.id)
+        ),
+      }));
+      return { document: { ...s.document, layers }, selection: null };
+    }),
+  viewportReset: 0,
+  resetViewport: () => set((s) => ({ viewportReset: s.viewportReset + 1 })),
 }));
 
 /** Selection helpers for components. */

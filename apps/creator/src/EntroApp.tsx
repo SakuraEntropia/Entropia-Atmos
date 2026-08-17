@@ -16,7 +16,6 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Titlebar,
   WorkspaceTabs,
   PanelSlot,
   VSplitter,
@@ -34,6 +33,7 @@ import { Inspector } from "./components/Inspector";
 import { ScenePanel } from "./components/ScenePanel";
 import { StatusPanel, BakePanel, DeliveryPanel } from "./components/StatusPanel";
 import { Transport } from "./components/Transport";
+import { MenuBar } from "./components/MenuBar";
 
 const WORKSPACES: { id: WorkspaceId; label: string }[] = [
   { id: "layout", label: "Layout" },
@@ -127,7 +127,7 @@ export function EntroApp() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#14161a", color: "#d6dde4" }}>
-      <Titlebar />
+      <MenuBar />
       <WorkspaceTabs
         workspaces={workspaces}
         activeId={effectiveId}

@@ -10,6 +10,7 @@ export function Viewport3D() {
   const selection = useCreatorStore((s) => s.selection);
   const select = useCreatorStore((s) => s.select);
   const updatePayload = useCreatorStore((s) => s.updatePayload);
+  const viewportReset = useCreatorStore((s) => s.viewportReset);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -44,6 +45,10 @@ export function Viewport3D() {
   useEffect(() => {
     viewportRef.current?.highlight(selection);
   }, [selection, document]);
+
+  useEffect(() => {
+    viewportRef.current?.resetCamera();
+  }, [viewportReset]);
 
   return (
     <div className="viewport-wrap">
