@@ -201,7 +201,7 @@ Audio-USD scene.
 |---|---|---|
 | 0 — Research Prototype | Active (background) | literature review, benchmark reference IRs |
 | 1 — MVP Renderer | **Complete** | exit criteria met: benchmark harness (0.44 dB ray vs image-source), general-geometry ray tracer, per-band materials |
-| 2 — AudioGS | **In progress** | 0003 calibration (0.32 dB probe error), 0004 per-band splats done; 0002 differentiable trainer running |
+| 2 — AudioGS | **Complete** | 0003 calibration (0.32 dB), 0004 per-band splats, 0002 PyTorch trainer (0.188 dB probe error, beats baseline) |
 | 3 — Real-Time Engine | **Implemented (TS core)** | streaming convolution, IR crossfade, LOD streaming, 41.7× headroom benchmark; native/GPU TODO |
 | 4 — Creator App | **Implemented** | apps/creator (ENTRO workspaces + backend API), built and smoke-tested |
 | 5 — Ecosystem | **Implemented (contracts + tooling)** | ScenePlugin + host simulator + packaging + native build specs; real VST3/AU binaries need the SDK |
@@ -248,6 +248,20 @@ Implemented and tested (43 unit tests):
 Remaining for Phase 2 exit: differentiable PyTorch trainer (must beat the
 0001 baseline), microphone-array ingestion, energy-conserving calibration
 (0003), per-band splat rendering (0004).
+
+### Phase 2 wrap-up (v0.4.0)
+
+- `tools/dataset/calibration` (0003) — ridge-LS per-band opacity fit:
+  8.30 → 0.32 dB mean probe error; listener energy within 0.29 dB of the
+  image-source reference.
+- Per-band splat rendering (0004) — per-band SH voxel fits, band energy
+  fractions, band-shaped path FIRs through the unchanged renderer.
+- `tools/dataset/training/train_audiogs.py` (0002) — PyTorch trainer over
+  log-opacity (Adam, dB-domain loss): 0.317 → 0.188 dB probe error,
+  listener Δ +0.16 dB — beats the analytic baseline; cross-language
+  round-trip verified through the TS renderer.
+- TODO(Phase 2 research): microphone-array ingestion; joint per-band
+  training; densification/pruning (full AudioGS loop).
 
 ### Phase 1 wrap-up (v0.3.0)
 
