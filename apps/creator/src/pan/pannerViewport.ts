@@ -46,8 +46,23 @@ export class PannerViewport {
   private readonly gizmo = new THREE.Group();
   private readonly gizmoParts: { mesh: THREE.Mesh; mode: "translate" | "rotate"; axis: THREE.Vector3 }[] = [];
   private gizmoTarget: { object: THREE.Object3D; target: DragTarget } | null = null;
-  private gizmoDrag: { mode: "translate" | "rotate"; axis: THREE.Vector3; startPos: THREE.Vector3; startQuat: THREE.Quaternion; plane: THREE.Plane; startAngle: number; u: THREE.Vector3; v: THREE.Vector3 } | null = null;
+  private gizmoDrag: { mode: "translate" | "rotate" | "scale"; axis: THREE.Vector3; startPos: THREE.Vector3; startQuat: THREE.Quaternion; startScale: THREE.Vector3; plane: THREE.Plane; startAngle: number; u: THREE.Vector3; v: THREE.Vector3 } | null = null;
   private selectedId: string | null = null;
+  private tool: "select" | "move" | "rotate" | "scale" = "select";
+
+  /** Blender-style active tool: controls gizmo parts and object dragging. */
+  setTool(tool: "select" | "move" | "rotate" | "scale"): void {
+    this.tool = tool;
+    this.updateGizmo();
+  }
+
+  /** Frame the selected object (camera target follows it). */
+  frameSelected(): void {
+    if (this.gizmoTarget) {
+      this.controls.target.copy(this.gizmoTarget.object.position);
+      this.controls.update();
+    }
+  }
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -158,27 +173,41 @@ export class PannerViewport {
           this.scene.add(object);
           this.draggables.set(`emitter:${prim.id}`, { object, target: { type: "emitter", id: prim.id }, baseColor: EMITTER_COLOR });
         } else if (prim.type === "listener") {
+          // Camera-style representation (like 3D software): body box + view
+          // frustum wireframe showing the binaural listening direction.
           const group = new THREE.Group();
-          const head = new THREE.Mesh(
-            new THREE.SphereGeometry(0.11, 24, 24),
-            new THREE.MeshStandardMaterial({ color: LISTENER_COLOR, roughness: 0.4 })
+          const body = new THREE.Mesh(
+            new THREE.BoxGeometry(0.16, 0.1, 0.18),
+            new THREE.MeshStandardMaterial({ color: LISTENER_COLOR, roughness: 0.35 })
           );
-          group.add(head);
-          for (const side of [-1, 1]) {
-            const ear = new THREE.Mesh(
-              new THREE.SphereGeometry(0.045, 16, 16),
-              new THREE.MeshStandardMaterial({ color: LISTENER_COLOR, roughness: 0.4 })
-            );
-            ear.position.set(side * 0.085, 0, 0);
-            group.add(ear);
-          }
-          const nose = new THREE.Mesh(
-            new THREE.ConeGeometry(0.05, 0.14, 16),
-            new THREE.MeshStandardMaterial({ color: LISTENER_COLOR, roughness: 0.4 })
+          group.add(body);
+          const lens = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.045, 0.045, 0.08, 16),
+            new THREE.MeshStandardMaterial({ color: 0x274156, roughness: 0.5 })
           );
-          nose.rotation.x = Math.PI / 2;
-          nose.position.set(0, 0, 0.14);
-          group.add(nose);
+          lens.rotation.x = Math.PI / 2;
+          lens.position.set(0, 0, 0.14);
+          group.add(lens);
+          // Frustum: apex behind the body, opening forward (+z), ~60° FOV.
+          const fov = 1.0; // half-angle tangent
+          const nearZ = 0.12;
+          const farZ = 1.1;
+          const apex = new THREE.Vector3(0, 0, -0.05);
+          const nw = new THREE.Vector3(-fov * nearZ, fov * nearZ * 0.75, nearZ);
+          const ne = new THREE.Vector3(fov * nearZ, fov * nearZ * 0.75, nearZ);
+          const se = new THREE.Vector3(fov * nearZ, -fov * nearZ * 0.75, nearZ);
+          const sw = new THREE.Vector3(-fov * nearZ, -fov * nearZ * 0.75, nearZ);
+          const fw = new THREE.Vector3(-fov * farZ, fov * farZ * 0.75, farZ);
+          const fe = new THREE.Vector3(fov * farZ, fov * farZ * 0.75, farZ);
+          const fe2 = new THREE.Vector3(fov * farZ, -fov * farZ * 0.75, farZ);
+          const fsw = new THREE.Vector3(-fov * farZ, -fov * farZ * 0.75, farZ);
+          const points = [apex, nw, apex, ne, apex, se, apex, sw, nw, ne, ne, se, se, sw, sw, nw, fw, fe, fe, fe2, fe2, fsw, fsw, fw, nw, fw, ne, fe, se, fe2, sw, fsw];
+          const frustum = new THREE.LineSegments(
+            new THREE.BufferGeometry().setFromPoints(points),
+            new THREE.LineBasicMaterial({ color: LISTENER_COLOR, transparent: true, opacity: 0.9 })
+          );
+          frustum.renderOrder = 2;
+          group.add(frustum);
           applyTransform(group, transform);
           this.scene.add(group);
           this.draggables.set(`listener:${prim.id}`, { object: group, target: { type: "listener", id: prim.id }, baseColor: LISTENER_COLOR });
@@ -284,7 +313,10 @@ export class PannerViewport {
       this.gizmoTarget = null;
       return;
     }
-    this.gizmo.visible = entry.object.visible;
+    this.gizmo.visible = entry.object.visible && this.tool !== "select";
+    for (const part of this.gizmoParts) {
+      part.mesh.visible = this.tool === "rotate" ? part.mode === "rotate" : part.mode === "translate";
+    }
     this.gizmo.position.copy(entry.object.position);
     const cameraDistance = this.camera.position.distanceTo(entry.object.position);
     const scale = Math.max(0.35, Math.min(2.5, cameraDistance * 0.18));
@@ -330,21 +362,30 @@ export class PannerViewport {
 
   private onPointerDown = (event: PointerEvent): void => {
     this.downAt = { x: event.clientX, y: event.clientY };
-    // 1) Gizmo handles win (translate axis / rotate ring).
+    // 1) Gizmo handles win (translate axis / rotate ring / scale axis).
     const gizmoPart = this.pickGizmo(event);
-    if (gizmoPart && this.gizmoTarget) {
+    if (gizmoPart && this.gizmoTarget && this.tool !== "select") {
       this.controls.enabled = false;
       this.dragging = null;
       const entry = this.gizmoTarget;
       const { axis } = gizmoPart;
-      if (gizmoPart.mode === "translate") {
+      if (gizmoPart.mode === "translate" && this.tool === "scale") {
+        const cameraDir = this.camera.getWorldDirection(new THREE.Vector3());
+        let normal = new THREE.Vector3().crossVectors(axis, cameraDir);
+        if (normal.lengthSq() < 1e-6) normal = cameraDir.clone();
+        const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, entry.object.position);
+        this.gizmoDrag = {
+          mode: "scale", axis, startPos: entry.object.position.clone(), startQuat: entry.object.quaternion.clone(),
+          startScale: entry.object.scale.clone(), plane, startAngle: 0, u: new THREE.Vector3(), v: new THREE.Vector3(),
+        };
+      } else if (gizmoPart.mode === "translate") {
         const cameraDir = this.camera.getWorldDirection(new THREE.Vector3());
         let normal = new THREE.Vector3().crossVectors(axis, cameraDir);
         if (normal.lengthSq() < 1e-6) normal = cameraDir.clone();
         const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, entry.object.position);
         this.gizmoDrag = {
           mode: "translate", axis, startPos: entry.object.position.clone(), startQuat: entry.object.quaternion.clone(),
-          plane, startAngle: 0, u: new THREE.Vector3(), v: new THREE.Vector3(),
+          startScale: entry.object.scale.clone(), plane, startAngle: 0, u: new THREE.Vector3(), v: new THREE.Vector3(),
         };
       } else {
         const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(axis, entry.object.position);
@@ -353,13 +394,14 @@ export class PannerViewport {
         const v = new THREE.Vector3().crossVectors(axis, u).normalize();
         const hit = this.rayToPointerPlane(event, plane);
         const startAngle = hit ? Math.atan2(v.dot(hit.clone().sub(entry.object.position)), u.dot(hit.clone().sub(entry.object.position))) : 0;
-        this.gizmoDrag = { mode: "rotate", axis, startPos: entry.object.position.clone(), startQuat: entry.object.quaternion.clone(), plane, startAngle, u, v };
+        this.gizmoDrag = { mode: "rotate", axis, startPos: entry.object.position.clone(), startQuat: entry.object.quaternion.clone(), startScale: entry.object.scale.clone(), plane, startAngle, u, v };
       }
       return;
     }
-    // 2) Scene objects.
+    // 2) Scene objects: free-drag only with the Move tool; otherwise click
+    // selects (Blender-like tool semantics).
     const pick = this.pickObject(event);
-    if (pick) {
+    if (pick && this.tool === "move") {
       this.controls.enabled = false;
       this.dragging = pick;
       this.callbacks.onSelect(pick.target);
@@ -368,7 +410,8 @@ export class PannerViewport {
       const hit = this.raycastToPlane(event);
       if (hit) this.dragOffset.copy(pick.object.position).sub(hit);
     } else {
-      this.callbacks.onSelect(null);
+      if (pick) this.callbacks.onSelect(pick.target);
+      else this.callbacks.onSelect(null);
     }
   };
 
@@ -380,6 +423,15 @@ export class PannerViewport {
       if (drag.mode === "translate") {
         const s = new THREE.Vector3().subVectors(hit, drag.startPos).dot(drag.axis);
         this.gizmoTarget.object.position.copy(drag.startPos).addScaledVector(drag.axis, s);
+      } else if (drag.mode === "scale") {
+        const s = new THREE.Vector3().subVectors(hit, drag.startPos).dot(drag.axis);
+        const worldScale = Math.max(this.gizmo.scale.x, 0.01);
+        const factor = Math.max(0.01, 1 + (s / worldScale) * 0.9);
+        const scaled = drag.startScale.clone();
+        if (Math.abs(drag.axis.x) > 0.5) scaled.x *= factor;
+        else if (Math.abs(drag.axis.y) > 0.5) scaled.y *= factor;
+        else scaled.z *= factor;
+        this.gizmoTarget.object.scale.copy(scaled);
       } else {
         const rel = new THREE.Vector3().subVectors(hit, drag.startPos);
         const angle = Math.atan2(drag.v.dot(rel), drag.u.dot(rel)) - drag.startAngle;

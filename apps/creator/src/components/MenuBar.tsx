@@ -161,7 +161,7 @@ export function MenuBar(props: MenuBarProps) {
           )}
         </div>
       ))}
-      <div className="workspace-tabs-wrap" style={{ marginLeft: "auto" }}>
+      <div className="workspace-tabs-wrap">
         <WorkspaceTabs
           workspaces={props.workspaces}
           activeId={props.activeId}

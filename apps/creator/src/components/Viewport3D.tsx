@@ -1,6 +1,7 @@
 /** React wrapper around the three.js panner viewport. */
 import { useEffect, useRef } from "react";
 import { PannerViewport } from "../pan/pannerViewport";
+import { ViewportToolbar } from "./ViewportToolbar";
 import { setTransformPosition, setTransformRotation, useCreatorStore } from "../state/sceneStore";
 
 export function Viewport3D() {
@@ -12,6 +13,8 @@ export function Viewport3D() {
   const updatePayload = useCreatorStore((s) => s.updatePayload);
   const viewportReset = useCreatorStore((s) => s.viewportReset);
   const hiddenIds = useCreatorStore((s) => s.hiddenIds);
+  const tool = useCreatorStore((s) => s.tool);
+  const frameSignal = useCreatorStore((s) => s.frameSignal);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -58,9 +61,18 @@ export function Viewport3D() {
     viewportRef.current?.setHidden(hiddenIds);
   }, [hiddenIds]);
 
+  useEffect(() => {
+    viewportRef.current?.setTool(tool);
+  }, [tool]);
+
+  useEffect(() => {
+    viewportRef.current?.frameSelected();
+  }, [frameSignal]);
+
   return (
     <div className="viewport-wrap">
       <canvas ref={canvasRef} className="viewport-canvas" />
+      <ViewportToolbar />
       <div className="viewport-toolbar">
         <button onClick={() => viewportRef.current?.resetCamera()}>⌂ Reset view</button>
         <span className="viewport-hint">右键拖拽旋转 · 中键平移 · 滚轮缩放 · 拖动物体摆位</span>

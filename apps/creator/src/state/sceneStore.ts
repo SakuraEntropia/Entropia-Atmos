@@ -83,6 +83,12 @@ interface CreatorState {
   /** Outliner visibility toggles (prim ids hidden in the 3D view). */
   hiddenIds: string[];
   toggleHidden(id: string): void;
+  /** Blender-style active tool (left toolbar). */
+  tool: "select" | "move" | "rotate" | "scale";
+  setTool(tool: "select" | "move" | "rotate" | "scale"): void;
+  /** Frame the selected object in the 3D view. */
+  frameSignal: number;
+  frameViewport(): void;
 }
 
 function stamp(): string {
@@ -170,6 +176,10 @@ export const useCreatorStore = create<CreatorState>((set, get) => ({
   splashOpen: true,
   closeSplash: () => set({ splashOpen: false }),
   hiddenIds: [],
+  tool: "select",
+  setTool: (tool) => set({ tool }),
+  frameSignal: 0,
+  frameViewport: () => set((s) => ({ frameSignal: s.frameSignal + 1 })),
   toggleHidden: (id) =>
     set((s) => ({
       hiddenIds: s.hiddenIds.includes(id) ? s.hiddenIds.filter((h) => h !== id) : [...s.hiddenIds, id],

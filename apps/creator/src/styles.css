@@ -196,3 +196,21 @@ body {
 .asset-format { font-size: 10px; color: #5c6773; border: 1px solid #2c3340; border-radius: 3px; padding: 0 4px; }
 .asset-del { opacity: 0; }
 .asset-row:hover .asset-del { opacity: 1; }
+
+/* Blender-style left toolbar */
+.viewport-toolbar-left {
+  position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 4px; z-index: 20;
+  background: rgba(23, 26, 31, 0.9); border: 1px solid #262c34;
+  border-radius: 8px; padding: 5px;
+}
+.tool-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: transparent; border: none; color: #8a97a3;
+  padding: 5px 8px; border-radius: 5px; cursor: pointer; font-size: 11.5px;
+  text-align: left; min-width: 76px;
+}
+.tool-btn:hover { background: #232933; color: #d6dde4; }
+.tool-btn.active { background: #2a3240; color: #ff9d4d; }
+.tool-icon { width: 16px; text-align: center; font-size: 13px; }
+.tool-sep { height: 1px; background: #2c3340; margin: 3px 6px; }
