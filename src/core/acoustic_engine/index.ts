@@ -22,6 +22,7 @@ export type {
 export { airAbsorptionDbPerMeter, airAbsorptionFactor } from "./airAbsorption";
 export { absorptionAt, reflectionAmplitude, DEFAULT_ABSORPTION } from "./materialUtil";
 export { ImageSourceSolver } from "./solvers/imageSource";
+export { SplatFieldSolver, hasSplatFields } from "./solvers/splatField";
 export { FdnReverbSystem, estimateT60 } from "./reverb/fdn";
 export { DefaultAcousticEngine, MapSolverRegistry } from "./engine";
 export type { DefaultAcousticEngineOptions } from "./engine";

@@ -3,6 +3,7 @@ import type { AcousticEnvironment } from "./environment";
 import type { AcousticMaterial } from "./material";
 import type { SoundEmitter } from "./emitter";
 import type { SoundListener } from "./listener";
+import type { SplatField } from "./splatField";
 import type { Transform, Vec3 } from "./types";
 
 /** A geometry asset reference consumed by the engine's geometry processor. */
@@ -35,6 +36,8 @@ export interface AudioScene {
   geometry: GeometryRef[];
   /** Optional shoebox room descriptor for image-source style solvers. */
   room?: RoomBox;
+  /** Optional AudioGS splat fields (alternative scene representation). */
+  splatFields?: SplatField[];
 }
 
 export interface SceneValidationIssue {
@@ -81,6 +84,27 @@ export function validateScene(scene: AudioScene): SceneValidationIssue[] {
   if (scene.upAxis !== "y" && scene.upAxis !== "z") {
     issues.push({ path: "upAxis", message: `upAxis must be 'y' or 'z', got '${scene.upAxis}'` });
   }
+  scene.splatFields?.forEach((field, fieldIndex) => {
+    if (field.primitives.length === 0) {
+      issues.push({ path: `splatFields[${fieldIndex}]`, message: "splat field has no primitives" });
+      return;
+    }
+    const expected = field.primitives[0].shCoefficients.length;
+    field.primitives.forEach((splat, splatIndex) => {
+      if (splat.shCoefficients.length !== expected) {
+        issues.push({
+          path: `splatFields[${fieldIndex}].primitives[${splatIndex}]`,
+          message: "splat SH coefficient length differs from the field's first splat",
+        });
+      }
+      if (!Number.isFinite(splat.opacity) || splat.opacity < 0) {
+        issues.push({
+          path: `splatFields[${fieldIndex}].primitives[${splatIndex}].opacity`,
+          message: "opacity must be a finite number ≥ 0",
+        });
+      }
+    });
+  });
 
   return issues;
 }

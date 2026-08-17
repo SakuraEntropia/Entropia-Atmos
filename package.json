@@ -7,7 +7,8 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "render": "tsx src/tools/cli/render.ts"
+    "render": "tsx src/tools/cli/render.ts",
+    "audiogs": "tsx src/tools/cli/audiogs.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -1,6 +1,6 @@
 /** Default AcousticEngine wiring: solver registry → early paths, FDN reverb
  * → late field, combined into one directional impulse response. */
-import type { DirectionalImpulseResponse } from "./impulseResponse";
+import type { DirectionalImpulseResponse, LateField } from "./impulseResponse";
 import type { GeometryProcessor } from "./geometryProcessor";
 import type { RayTracer } from "./rayTracer";
 import type { AcousticEngine, SimulationRequest, Solver, SolverRegistry } from "./acousticEngine";
@@ -60,14 +60,22 @@ export class DefaultAcousticEngine implements AcousticEngine {
       durationSeconds: request.options.lateFieldDurationSeconds ?? 1.5,
       sampleRate: request.options.sampleRate,
     };
-    const estimate = await this.reverb.estimateLateField(reverbRequest);
-    const stereo = await this.reverb.synthesize(reverbRequest, estimate);
+    // Solver that already encode propagation (splat fields) disable the
+    // statistical late field with lateFieldDurationSeconds: 0.
+    let late: LateField = { bands: [], samples: new Float32Array(0) };
+    let lateDuration = 0;
+    if (reverbRequest.durationSeconds > 0) {
+      const estimate = await this.reverb.estimateLateField(reverbRequest);
+      const stereo = await this.reverb.synthesize(reverbRequest, estimate);
+      late = { ...estimate, samples: stereo.left, stereo };
+      lateDuration = reverbRequest.durationSeconds;
+    }
 
     return {
       sampleRate: request.options.sampleRate,
-      durationSeconds: Math.max(reverbRequest.durationSeconds, early.durationSeconds),
+      durationSeconds: Math.max(lateDuration, early.durationSeconds),
       early: early.early,
-      late: { ...estimate, samples: stereo.left, stereo },
+      late,
     };
   }
 }

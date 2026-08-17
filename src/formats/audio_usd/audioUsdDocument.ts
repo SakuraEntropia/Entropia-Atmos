@@ -9,6 +9,8 @@ import type {
   RoomBox,
   SoundEmitter,
   SoundListener,
+  SplatField,
+  SplatPrimitive,
   Transform,
   Vec3,
 } from "../../core/audio_scene";
@@ -246,6 +248,28 @@ function mapGeometry(prim: AudioUsdPrim): GeometryRef {
   return ref;
 }
 
+function mapSplatField(prim: AudioUsdPrim): SplatField {
+  const path = `prims/${prim.id}`;
+  const payload = prim.payload;
+  if (!Array.isArray(payload.splats)) fail(`${path}.splats`, "must be an array");
+  if (payload.splats.length === 0) fail(`${path}.splats`, "must not be empty");
+  const primitives: SplatPrimitive[] = payload.splats.map((raw, i) => {
+    if (!isRecord(raw)) fail(`${path}.splats[${i}]`, "must be an object");
+    const coefficients = raw.shCoefficients;
+    if (!Array.isArray(coefficients) || coefficients.some((v) => typeof v !== "number" || !Number.isFinite(v))) {
+      fail(`${path}.splats[${i}].shCoefficients`, "must be an array of finite numbers");
+    }
+    return {
+      position: vec3Field(raw, "position", `${path}.splats[${i}]`),
+      scale: vec3Field(raw, "scale", `${path}.splats[${i}]`),
+      rotation: quatField(raw, "rotation", `${path}.splats[${i}]`),
+      opacity: numberField(raw, "opacity", `${path}.splats[${i}]`),
+      shCoefficients: Float32Array.from(coefficients as number[]),
+    };
+  });
+  return { primitives };
+}
+
 /** Convert an Audio-USD document into the engine's AudioScene model,
  * validating every prim payload against the v0 schema.
  * TODO: layer composition (references, overrides, variants). */
@@ -276,6 +300,9 @@ export function toAudioScene(document: AudioUsdDocument): AudioScene {
         break;
       case "geometry":
         scene.geometry.push(mapGeometry(prim));
+        break;
+      case "splatField":
+        scene.splatFields = [...(scene.splatFields ?? []), mapSplatField(prim)];
         break;
       default:
         fail(`prims/${prim.id}`, `unknown prim type '${prim.type}'`);

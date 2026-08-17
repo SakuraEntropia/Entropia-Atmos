@@ -20,3 +20,4 @@ export type { AcousticMaterial, AcousticBand } from "./material";
 export type { AcousticEnvironment, ReverbDefaults } from "./environment";
 export type { AudioScene, GeometryRef, RoomBox, SceneValidationIssue } from "./audioScene";
 export { validateScene } from "./audioScene";
+export type { SplatPrimitive, SplatField } from "./splatField";

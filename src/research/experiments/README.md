@@ -42,4 +42,7 @@ Fill every section — a section that does not apply is written as
 
 | Experiment | Question | Status |
 |---|---|---|
-| — | none yet; Phase 0 feasibility experiments start here | — |
+| [0001-audiogs-field-reconstruction](./0001-audiogs-field-reconstruction/EXPERIMENT.md) | Can the analytic AudioGS projection reconstruct the shoebox field? What are the LOD errors? | done — energy within 1–4.7 dB of reference; LOD errors −8.4/−10.2/−12.0 dB |
+| 0002 | Differentiable AudioGS trainer must beat the 0001 baseline | allocated |
+| 0003 | Energy-conserving splat calibration (opacity fit, SH regularization) | allocated |
+| 0004 | Per-band splat rendering | allocated |

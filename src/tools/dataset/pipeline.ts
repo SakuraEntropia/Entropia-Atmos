@@ -1,10 +1,15 @@
 /** AudioGS dataset pipeline contracts (Phase 2).
  *
- * Stages: ingestion → voxelization → training → compression → streaming.
- * All stages are interfaces today; implementations arrive in Phase 2, with a
- * PyTorch adapter living dataset-side (see ARCHITECTURE.md §7).
+ * Implemented in this phase: simulated-field ingestion (image-source),
+ * SH voxelization, splat projection, and SH band-truncation LODs — see
+ * fieldSynthesis.ts. Remaining contracts:
+ * TODO(Phase 2 research): microphone-array ingestion (STFT → directional
+ * features) and the differentiable PyTorch trainer (see training/README.md).
  */
-import type { Hertz, Quat, Vec3 } from "../../core/audio_scene";
+import type { Hertz, Vec3 } from "../../core/audio_scene";
+import type { SplatField, SplatPrimitive } from "../../core/audio_scene";
+
+export type { SplatField, SplatPrimitive } from "../../core/audio_scene";
 
 /** A spatial audio recording session (microphone array or simulated field). */
 export interface DatasetSource {
@@ -17,28 +22,18 @@ export interface DatasetSource {
   signalAssets: string[];
 }
 
-/** A voxelized sound-field volume (the training representation). */
+/** A voxelized directional sound field: per-voxel SH coefficients. */
 export interface VoxelField {
   /** Voxel grid resolution per axis. */
   resolution: [number, number, number];
+  /** Voxel edge length, meters. */
   voxelSizeMeters: number;
-  /** Per-voxel spectrogram/SH payload; layout frozen in Phase 2. */
-  data: Float32Array;
-}
-
-/** One AudioGS primitive: a Gaussian with directional spectral content. */
-export interface SplatPrimitive {
-  position: Vec3;
-  /** Scale (standard deviation) per axis, meters. */
-  scale: Vec3;
-  rotation: Quat;
-  /** Spherical-harmonics coefficients; band count varies per LOD level. */
-  shCoefficients: Float32Array;
-  opacity: number;
-}
-
-export interface SplatField {
-  primitives: SplatPrimitive[];
+  /** World-space position of the grid's minimum corner. */
+  origin: Vec3;
+  /** Spherical-harmonics band count per voxel. */
+  bandCount: number;
+  /** Per-voxel SH coefficients, voxels × bandCount², x-fastest order. */
+  coefficients: Float32Array;
 }
 
 /** One compressed level of detail of a splat field. */
@@ -48,26 +43,20 @@ export interface SplatLevel {
   primitives: SplatPrimitive[];
 }
 
-export interface Voxelizer {
-  /** Bin captured signals into a voxel field.
-   * TODO: density + feature estimation per voxel. */
-  voxelize(source: DatasetSource, voxelSizeMeters: number): Promise<VoxelField>;
-}
-
 export interface AudioGsTrainer {
   /** Train Gaussian primitives to reconstruct a voxel field.
-   * TODO: gradient-based densification/pruning (PyTorch adapter). */
+   * TODO(Phase 2 research): gradient-based densification/pruning behind the
+   * dataset-side PyTorch adapter — see training/README.md. */
   train(field: VoxelField, epochs: number): Promise<SplatField>;
 }
 
 export interface SplatCompressor {
-  /** Compress a field into LOD levels under a storage budget (bytes).
-   * TODO: SH band truncation + quantization; per-level error metrics. */
+  /** Compress a field into LOD levels under a storage budget (bytes). */
   compress(field: SplatField, storageBudgetBytes: number): Promise<SplatLevel[]>;
 }
 
 export interface SplatStreamer {
   /** Stream LODs toward a moving listener.
-   * TODO: LOD switching, prefetch, back-pressure (Phase 3). */
+   * TODO(Phase 3): LOD switching, prefetch, back-pressure. */
   stream(levels: SplatLevel[], listenerPosition: Vec3): AsyncIterable<SplatLevel>;
 }

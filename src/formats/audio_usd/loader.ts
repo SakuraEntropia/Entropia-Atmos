@@ -2,7 +2,7 @@
 import { AUDIO_USD_SCHEMA_VERSION, type AudioUsdPrim, type AudioUsdPrimType } from "./schema";
 import type { AudioUsdDocument } from "./audioUsdDocument";
 
-const PRIM_TYPES = new Set<string>(["emitter", "listener", "material", "environment", "geometry"]);
+const PRIM_TYPES = new Set<string>(["emitter", "listener", "material", "environment", "geometry", "splatField"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

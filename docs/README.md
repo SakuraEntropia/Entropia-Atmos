@@ -119,13 +119,18 @@ The stable contracts between layers are what make the project modular:
 ```bash
 npm install                      # installs the four dev dependencies
 npm run typecheck                # validates all module contracts + implementations
-npm test                         # 28 unit tests (formats, FFT, DSP, solvers, HRTF, pipeline)
+npm test                         # 43 unit tests (formats, FFT, DSP, SH, solvers, pipelines)
 npm run render -- examples/shoebox.audio_usd.json --impulse --out out.wav
+npm run audiogs -- examples/shoebox.audio_usd.json --grid 5 --bands 4 --out examples/shoebox.splats
+npm run render -- examples/shoebox.splats.audio_usd.json --solver splat-field --impulse --duration 0 --out out.wav
 ```
 
-The last command runs the Phase 1 headless pipeline: Audio-USD scene →
-image-source + FDN simulation → HRTF binaural render → WAV. For the UI
-template, follow its own README:
+The `render` command runs the Phase 1 pipeline: Audio-USD scene →
+image-source + FDN simulation → HRTF binaural render → WAV. The `audiogs`
+command builds an AudioGS splat sound field from the same scene and renders
+it through the same pipeline (`--solver splat-field`); measured baseline
+numbers live in `src/research/experiments/0001`. For the UI template,
+follow its own README:
 
 ```bash
 cd Entropia-Template-UI_atmos && npm install && npm run dev
@@ -149,9 +154,11 @@ cd Entropia-Template-UI_atmos && npm install && npm run dev
 
 ## Status
 
-**Phase 1 — Minimum Viable Acoustic Renderer (in progress).** The offline
-pipeline is implemented and tested: Audio-USD → image-source + FDN → HRTF
-binaural → WAV, runnable with one command. Remaining Phase 1 work: benchmark
-harness vs. reference IRs, ray tracing for general geometry, per-band
-material filtering. See the [status board](./ROADMAP.md#status-board) and the
+**Phase 2 — AudioGS Integration (in progress).** The analytic field
+pipeline is implemented and measured: SH voxelization + Gaussian splats +
+band-truncation LODs rendering through the unchanged Phase 1 renderer
+(baseline in experiment 0001). Remaining: the differentiable PyTorch
+trainer (which must beat the baseline), microphone-array ingestion, and
+energy-conserving calibration. See the
+[status board](./ROADMAP.md#status-board) and the
 [roadmap](./ROADMAP.md) for what comes next.

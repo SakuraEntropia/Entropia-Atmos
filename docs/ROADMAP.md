@@ -201,7 +201,7 @@ Audio-USD scene.
 |---|---|---|
 | 0 — Research Prototype | Active (background) | literature review, benchmark reference IRs |
 | 1 — MVP Renderer | **In progress** | offline MVP renderer shipped (v0.1.0); next: ray tracer for general geometry, per-band materials |
-| 2 — AudioGS | Not started | blocked on Phase 1 DIR pipeline maturity |
+| 2 — AudioGS | **In progress** | analytic field pipeline shipped (v0.2.0); next: differentiable trainer, energy-conserving calibration |
 | 3 — Real-Time | Not started | blocked on Phase 2 LOD streaming |
 | 4 — Creator App | Not started | template adopted, blocked on Phase 3 core |
 | 5 — Ecosystem | Not started | blocked on Phase 4 app + Phase 3 latency |
@@ -225,6 +225,29 @@ Implemented and tested (28 unit tests, `npm test`):
 
 Remaining for Phase 1 exit: benchmark harness vs. reference IRs (energy
 error), ray tracer + general geometry, per-band material filtering.
+
+### Phase 2 progress (v0.2.0)
+
+Implemented and tested (43 unit tests):
+
+- `core/sh` — orthonormal real SH basis, weighted ridge LS projection, band
+  truncation, directional-energy error metric.
+- `tools/dataset` — image-source field sampling, SH voxelization
+  (energy = gain²), splat projection (opacity + normalized patterns),
+  band-truncation LODs with measured error, JSON serialization + streaming
+  manifest.
+- `core/acoustic_engine` — `SplatFieldSolver` (partition-of-unity kernel
+  regression, energy-fraction patterns) feeding the unchanged Phase 1
+  renderer; FDN bypass via `lateFieldDurationSeconds: 0`.
+- `formats/audio_usd` — schema 0.2.0 (additive `splatField` prim).
+- `tools/converter` — `SplatFieldConverter` (splat field ↔ Audio-USD).
+- `tools/cli` — `npm run audiogs` field builder; `render --solver splat-field`.
+- `research/experiments/0001` — baseline measured: energy within 1–4.7 dB of
+  the image-source reference across grids; LOD errors −8.4/−10.2/−12.0 dB.
+
+Remaining for Phase 2 exit: differentiable PyTorch trainer (must beat the
+0001 baseline), microphone-array ingestion, energy-conserving calibration
+(0003), per-band splat rendering (0004).
 
 > Phases are gated by exit criteria, not by dates. Dates are added only when a
 > phase exits; see the experiment log for progress evidence.

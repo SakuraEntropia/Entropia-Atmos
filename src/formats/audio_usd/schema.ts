@@ -6,15 +6,19 @@
  */
 
 /** Bump when prim shapes change incompatibly; migrations are documented per
- * bump and MUST ship with the change (SPEC M-04). */
-export const AUDIO_USD_SCHEMA_VERSION = "0.1.0";
+ * bump and MUST ship with the change (SPEC M-04).
+ *
+ * 0.2.0: ADDITIVE — new "splatField" prim (AudioGS). v0.1 documents remain
+ * readable; no fields were removed or renamed. */
+export const AUDIO_USD_SCHEMA_VERSION = "0.2.0";
 
 export type AudioUsdPrimType =
   | "emitter"
   | "listener"
   | "material"
   | "environment"
-  | "geometry";
+  | "geometry"
+  | "splatField";
 
 export interface AudioUsdPrim {
   type: AudioUsdPrimType;

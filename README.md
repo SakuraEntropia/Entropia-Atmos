@@ -5,7 +5,10 @@ AI + Graphics Inspired Spatial Audio Engine
 > **"Blender for spatial audio."** Represent → simulate → shade → render →
 > deliver, the way modern graphics pipelines produce images.
 
-**Status:** Phase 1 — offline MVP renderer working headless. Docs: [docs/](./docs/) · Roadmap: [docs/ROADMAP.md](./docs/ROADMAP.md)
+**Status:** Phase 2 — AudioGS field pipeline working headless (splat sound
+fields render through the Phase 1 renderer; measured baseline in
+[experiment 0001](./src/research/experiments/0001-audiogs-field-reconstruction/EXPERIMENT.md)).
+Docs: [docs/](./docs/) · Roadmap: [docs/ROADMAP.md](./docs/ROADMAP.md)
 
 ## Introduction
 
@@ -42,11 +45,15 @@ cd entropia-atmos
 npm install
 npm run typecheck
 npm test
+# Phase 1: geometry acoustics render
 npm run render -- examples/shoebox.audio_usd.json --impulse --out out.wav
+# Phase 2: build an AudioGS splat field and render it
+npm run audiogs -- examples/shoebox.audio_usd.json --grid 5 --bands 4 --out examples/shoebox.splats
+npm run render -- examples/shoebox.splats.audio_usd.json --solver splat-field --impulse --duration 0 --out out.wav
 ```
 
-Renders the 5×4×3 m shoebox example (image-source early reflections +
-FDN late reverberation + HRTF binaural output) to a stereo WAV.
+Renders the 5×4×3 m shoebox example (image-source early reflections + FDN
+late reverberation, or an AudioGS splat sound field) to a binaural WAV.
 
 ## Repository layout
 
@@ -54,10 +61,11 @@ FDN late reverberation + HRTF binaural output) to a stereo WAV.
 docs/                       SPEC, ARCHITECTURE, ROADMAP, developer intro
 src/
 ├── core/
-│   ├── audio_scene/        scene model: emitter, listener, material, environment
-│   ├── acoustic_engine/    image-source solver, FDN reverb, air absorption, DIRs
+│   ├── audio_scene/        scene model: emitter, listener, material, environment, splats
+│   ├── acoustic_engine/    image-source + splat-field solvers, FDN reverb, DIRs
 │   ├── renderer/           Acoustic-BRDF, HRTF (parametric + JSON), binaural
-│   └── dsp/                FFT convolution, node graph, block processing
+│   ├── dsp/                FFT convolution, node graph, block processing
+│   └── sh/                 spherical harmonics: basis, projection, compression
 ├── formats/audio_usd/      Audio-USD v0 schema, JSON reader/writer
 ├── formats/wav/            PCM 8/16/24/32 + float32 read/write
 ├── plugins/                VST3 / AU host bridge contracts (Phase 5)
