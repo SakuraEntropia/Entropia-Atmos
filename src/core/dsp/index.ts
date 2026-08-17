@@ -13,6 +13,8 @@ export {
   splitIntoBands,
 } from "./bands";
 export type { AnalysisBand } from "./bands";
+export type { StereoBlockOut } from "./realtime/blockRenderer";
+export { StreamingConvolver, buildSceneIr, RealtimeBinauralRenderer } from "./realtime/index";
 export { SourceNode } from "./nodes/sourceNode";
 export { GainNode } from "./nodes/gainNode";
 export { SumNode } from "./nodes/sumNode";

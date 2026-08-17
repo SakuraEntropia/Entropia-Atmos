@@ -9,7 +9,8 @@
     "test": "vitest run",
     "render": "tsx src/tools/cli/render.ts",
     "audiogs": "tsx src/tools/cli/audiogs.ts",
-    "bench": "tsx src/tools/cli/bench.ts"
+    "bench": "tsx src/tools/cli/bench.ts",
+    "bench-rt": "tsx src/tools/cli/benchRt.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

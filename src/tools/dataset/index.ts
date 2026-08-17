@@ -27,3 +27,5 @@ export {
   predictProbeEnergy,
   calibrationErrorDb,
 } from "./calibration";
+export type { LodStreamerOptions } from "./streaming";
+export { selectLod, LodStreamer, streamLods } from "./streaming";
