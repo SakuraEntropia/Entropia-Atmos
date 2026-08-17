@@ -1,7 +1,7 @@
 {
   "name": "entropia-atmos-creator",
   "private": true,
-  "version": "0.5.1",
+  "version": "0.6.0",
   "type": "module",
   "description": "ENTRO ATMOS creator application \u2014 audio workstation functionality inside the Entropia template shell (3D panner, scene graph, materials, transport).",
   "scripts": {

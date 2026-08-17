@@ -1,9 +1,9 @@
 {
   "name": "entro-atmos",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.6.0",
   "type": "module",
-  "description": "ENTRO ATMOS — AI + Graphics inspired spatial audio engine (AudioGS, Audio-USD, acoustic simulation, HRTF binaural rendering).",
+  "description": "ENTRO ATMOS \u2014 AI + Graphics inspired spatial audio engine (AudioGS, Audio-USD, acoustic simulation, HRTF binaural rendering).",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",

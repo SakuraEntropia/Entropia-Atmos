@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { importSceneFile } from "../actions";
 import { useCreatorStore } from "../state/sceneStore";
 
-const APP_VERSION = "0.5.0";
+import { APP_VERSION } from "../version";
 
 export function Splash() {
   const closeSplash = useCreatorStore((s) => s.closeSplash);

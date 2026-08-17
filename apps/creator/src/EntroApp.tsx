@@ -36,6 +36,7 @@ import { ScenePanel } from "./components/ScenePanel";
 import { BakePanel, DeliveryPanel } from "./components/StatusPanel";
 import { Transport } from "./components/Transport";
 import { MenuBar } from "./components/MenuBar";
+import { APP_VERSION } from "./version";
 import { NodeEditor } from "./components/NodeEditor";
 import { AssetLibrary } from "./components/AssetLibrary";
 import { Splash } from "./components/Splash";
@@ -157,7 +158,7 @@ export function EntroApp() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#14161a", color: "#d6dde4" }}>
-      <Titlebar title={document?.name ? `${document.name}.audio_usd` : undefined} appName="ENTRO ATMOS" />
+      <Titlebar title={document?.name ? `${document.name}.audio_usd` : undefined} appName="ENTRO ATMOS" version={APP_VERSION} />
       <MenuBar
         workspaces={workspaces}
         activeId={effectiveId}
