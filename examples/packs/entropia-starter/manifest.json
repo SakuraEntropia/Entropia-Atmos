@@ -1,0 +1,13 @@
+{
+  "name": "entropia-starter",
+  "version": "0.1.0",
+  "description": "ENTRO ATMOS starter content pack",
+  "scenes": [
+    "shoebox.audio_usd.json"
+  ],
+  "targets": [
+    "standalone",
+    "vst3",
+    "au"
+  ]
+}

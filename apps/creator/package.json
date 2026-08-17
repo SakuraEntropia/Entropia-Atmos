@@ -1,0 +1,29 @@
+{
+  "name": "entropia-atmos-creator",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "ENTRO ATMOS creator application (Phase 4) — extends the Entropia UI template as the Application Layer.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "server": "tsx server.ts"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.3.0",
+    "entropia-template-ui": "file:../../Entropia-Template-UI_atmos",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.8"
+  }
+}

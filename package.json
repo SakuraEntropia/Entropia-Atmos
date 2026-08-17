@@ -10,7 +10,8 @@
     "render": "tsx src/tools/cli/render.ts",
     "audiogs": "tsx src/tools/cli/audiogs.ts",
     "bench": "tsx src/tools/cli/bench.ts",
-    "bench-rt": "tsx src/tools/cli/benchRt.ts"
+    "bench-rt": "tsx src/tools/cli/benchRt.ts",
+    "pack": "tsx src/tools/cli/package.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
