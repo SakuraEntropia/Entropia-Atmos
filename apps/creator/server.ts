@@ -9,10 +9,10 @@
  *   GET  /api/file?path=…          → serve rendered WAVs (restricted to /tmp/entro-*)
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { readFileSync, readdirSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve, join, basename } from "node:path";
 import { parseAudioUsd, toAudioScene } from "../../src/formats/audio_usd/index";
-import { encodeWav } from "../../src/formats/wav/index";
+import { decodeWav, encodeWav } from "../../src/formats/wav/index";
 import { validateScene, type AudioScene } from "../../src/core/audio_scene/index";
 import {
   DefaultAcousticEngine,
@@ -100,10 +100,27 @@ async function handleRender(body: RenderBody): Promise<{ message: string; wavPat
     },
   });
   const baked = await renderer.bake(scene, hrtf);
-  const source = createAudioBlock(1, Math.round(SAMPLE_RATE * 0.5), SAMPLE_RATE);
-  source.channels[0][0] = 1;
+  // Per-emitter source: imported audio when the signal references an asset,
+  // otherwise the impulse demo.
+  const sources = new Map<string, { channels: Float32Array[]; sampleRate: number; length: number }>();
+  for (const emitter of scene.emitters) {
+    const ref = emitter.signal?.ref;
+    if (typeof ref === "string" && ref.startsWith("assets/") && !ref.includes("..")) {
+      const assetPath = join(EXAMPLES, ref);
+      if (existsSync(assetPath)) {
+        const buf = readFileSync(assetPath);
+        const wav = decodeWav(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer);
+        if (wav.sampleRate !== SAMPLE_RATE) throw new Error(`asset '${ref}' is ${wav.sampleRate} Hz; re-import at 48 kHz`);
+        sources.set(emitter.id, { channels: wav.channels, sampleRate: wav.sampleRate, length: wav.channels[0].length });
+        continue;
+      }
+    }
+    const source = createAudioBlock(1, Math.round(SAMPLE_RATE * 0.5), SAMPLE_RATE);
+    source.channels[0][0] = 1;
+    sources.set(emitter.id, source);
+  }
   const out = await renderer.render(
-    { baked, listenerId: scene.listeners[0].id, sources: new Map([[scene.emitters[0].id, source]]) },
+    { baked, listenerId: scene.listeners[0].id, sources },
     hrtf,
     SAMPLE_RATE
   );
@@ -218,6 +235,20 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       if (!path.startsWith("examples/") || path.includes("..")) throw new Error("path not allowed");
       const text = readFileSync(resolve(import.meta.dirname, "../../", path), "utf8");
       sendJson(res, 200, { status: "success", doc: JSON.parse(text) });
+      return;
+    }
+    if (req.method === "POST" && url.pathname === "/api/audio/upload") {
+      const body = await readBody(req);
+      const rawName = String(body.name ?? "audio").replace(/\.(wav|mp3|aac|ogg|flac|m4a)$/i, "");
+      if (!/^[a-zA-Z0-9._-]+$/.test(rawName)) throw new Error(`invalid audio name '${rawName}'`);
+      const samples = body.samples as number[] | undefined;
+      if (!Array.isArray(samples) || samples.length === 0) throw new Error("missing 'samples' array");
+      const assetsDir = join(EXAMPLES, "assets");
+      mkdirSync(assetsDir, { recursive: true });
+      const path = join(assetsDir, `${rawName}.wav`);
+      const channel = Float32Array.from(samples);
+      writeFileSync(path, new Uint8Array(encodeWav([channel], SAMPLE_RATE, "float32")));
+      sendJson(res, 200, { ok: true, ref: `assets/${rawName}.wav`, path, samples: channel.length });
       return;
     }
     if (req.method === "POST" && url.pathname === "/api/files/save") {

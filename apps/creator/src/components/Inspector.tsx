@@ -1,5 +1,6 @@
 /** Inspector: contextual editors for the selection + simulation controls. */
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { importAudioForEmitter } from "../actions";
 import {
   selectedPrim,
   setTransformPosition,
@@ -48,6 +49,7 @@ function Vec3Row({
 function EmitterEditor({ id }: { id: string }) {
   const document = useCreatorStore((s) => s.document);
   const update = useCreatorStore((s) => s.updatePayload);
+  const audioRef = useRef<HTMLInputElement>(null);
   const prim = selectedPrim(document, { type: "emitter", id });
   if (!prim) return null;
   const transform = transformOf(prim.payload);
@@ -83,6 +85,21 @@ function EmitterEditor({ id }: { id: string }) {
           }
         />
       </label>
+      <input
+        ref={audioRef}
+        type="file"
+        accept="audio/*"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) void importAudioForEmitter(id, file);
+        }}
+      />
+      <div className="audio-import-row">
+        <button className="mini-btn wide" onClick={() => audioRef.current?.click()}>⬇ Import audio…</button>
+        <span className="muted">{String(((prim.payload.signal as Record<string, unknown> | undefined)?.ref) ?? "no source (impulse demo)")}</span>
+      </div>
       <p className="muted">Drag the emitter in the 3D view to panner it.</p>
       <span className="hidden">{kind}</span>
     </div>

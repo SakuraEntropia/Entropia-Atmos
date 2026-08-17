@@ -197,3 +197,40 @@ export async function bakeField(): Promise<void> {
     state.logLine(`bake failed: ${error instanceof Error ? error.message : error}`);
   }
 }
+
+/** Import an audio file for a speaker (emitter): decode in the browser,
+ * resample to 48 kHz mono, upload to the backend, and attach it as the
+ * emitter's signal source. */
+export async function importAudioForEmitter(emitterId: string, file: File): Promise<void> {
+  const state = useCreatorStore.getState();
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const audioContext = new AudioContext();
+    const decoded = await audioContext.decodeAudioData(arrayBuffer);
+    const offline = new OfflineAudioContext(1, Math.max(1, Math.ceil(decoded.duration * 48000)), 48000);
+    const source = offline.createBufferSource();
+    source.buffer = decoded;
+    source.connect(offline.destination);
+    source.start();
+    const rendered = await offline.startRendering();
+    void audioContext.close();
+    const samples = Array.from(rendered.getChannelData(0));
+
+    const name = `${emitterId}-${file.name}`.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const resp = await fetch("/api/audio/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, samples }),
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    const data = (await resp.json()) as { ref: string; samples: number };
+    useCreatorStore.getState().updatePayload("emitter", emitterId, (payload) => {
+      const signal = (payload.signal ?? {}) as Record<string, unknown>;
+      signal.ref = data.ref;
+      payload.signal = signal;
+    });
+    state.logLine(`attached '${file.name}' → ${data.ref} (${data.samples} samples @ 48 kHz)`);
+  } catch (error) {
+    state.logLine(`audio import failed: ${error instanceof Error ? error.message : error}`);
+  }
+}

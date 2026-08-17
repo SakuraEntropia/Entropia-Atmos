@@ -214,3 +214,7 @@ body {
 .tool-btn.active { background: #2a3240; color: #ff9d4d; }
 .tool-icon { width: 16px; text-align: center; font-size: 13px; }
 .tool-sep { height: 1px; background: #2c3340; margin: 3px 6px; }
+
+/* speaker audio import */
+.audio-import-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
+.audio-import-row .muted { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
