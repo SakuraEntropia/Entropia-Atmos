@@ -21,11 +21,15 @@ import {
   VSplitter,
   HSplitter,
   ToastStack,
-  leaf,
-  split,
   registerPanelContent,
   setPanelTypeVisibility,
   StatusPanel,
+  setLeafType,
+  splitLeaf,
+  mergeLeaf,
+  closeLeaf,
+  resizeSplit,
+  countLeaves,
   type AreaNode,
   type WorkspaceInstance,
 } from "entropia-template-ui";
@@ -157,7 +161,7 @@ export function EntroApp() {
   }, []);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#14161a", color: "#d6dde4" }}>
+    <div className="app" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <Titlebar title={document?.name ? `${document.name}.audio_usd` : undefined} appName="ENTRO ATMOS" version={APP_VERSION} />
       <MenuBar
         workspaces={workspaces}
@@ -172,13 +176,7 @@ export function EntroApp() {
         onReorder={reorderWorkspace}
       />
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-        <LayoutTree
-          node={root}
-          onSplitRow={(id) => updateActiveRoot((r) => splitAt(r, id, "row"))}
-          onSplitColumn={(id) => updateActiveRoot((r) => splitAt(r, id, "column"))}
-          onMerge={(id) => updateActiveRoot((r) => mergeAt(r, id))}
-          onClose={(id) => updateActiveRoot((r) => closeAt(r, id))}
-        />
+        <LayoutTree node={root} root={root} updateRoot={updateActiveRoot} />
       </div>
       <ToastStack />
       {splashOpen && <Splash />}
@@ -188,78 +186,59 @@ export function EntroApp() {
 
 function LayoutTree({
   node,
-  onSplitRow,
-  onSplitColumn,
-  onMerge,
-  onClose,
+  root,
+  updateRoot,
 }: {
   node: AreaNode;
-  onSplitRow: (id: string) => void;
-  onSplitColumn: (id: string) => void;
-  onMerge: (id: string) => void;
-  onClose: (id: string) => void;
+  root: AreaNode;
+  updateRoot: (fn: (r: AreaNode) => AreaNode) => void;
 }) {
-  const [ratios, setRatios] = useState<Record<string, number>>({});
-  const render = (n: AreaNode): React.ReactNode => {
-    if (n.kind === "leaf") {
-      return (
-        <PanelSlot
-          id={n.id}
-          type={n.type}
-          onType={() => undefined}
-          onSplitRow={() => onSplitRow(n.id)}
-          onSplitColumn={() => onSplitColumn(n.id)}
-          onMerge={() => onMerge(n.id)}
-          onClose={() => onClose(n.id)}
-          canMerge
-          mergeTarget={false}
-          preview={null}
-          onPreview={() => undefined}
-        />
-      );
-    }
-    const ratio = ratios[n.id] ?? n.ratio;
-    const setRatio = (value: number) => setRatios((r) => ({ ...r, [n.id]: Math.min(0.92, Math.max(0.08, value)) }));
-    const first = <div style={{ flex: ratio, minWidth: 0, minHeight: 0, overflow: "hidden" }}>{render(n.first)}</div>;
-    const second = <div style={{ flex: 1 - ratio, minWidth: 0, minHeight: 0, overflow: "hidden" }}>{render(n.second)}</div>;
-    return n.direction === "row" ? (
-      <div style={{ display: "flex", flexDirection: "row", width: "100%", height: "100%" }}>
-        {first}
-        <VSplitter onDrag={(dx, total) => setRatio(ratio + dx / total)} />
-        {second}
-      </div>
-    ) : (
-      <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%" }}>
-        {first}
-        <HSplitter onDrag={(dy, total) => setRatio(ratio + dy / total)} />
-        {second}
-      </div>
+  const canMerge = countLeaves(root) > 1;
+  if (node.kind === "leaf") {
+    return (
+      <PanelSlot
+        id={node.id}
+        type={node.type}
+        onType={(type) => updateRoot((r) => setLeafType(r, node.id, type))}
+        onSplitRow={() => updateRoot((r) => splitLeaf(r, node.id, "row"))}
+        onSplitColumn={() => updateRoot((r) => splitLeaf(r, node.id, "column"))}
+        onMerge={() => updateRoot((r) => mergeLeaf(r, node.id))}
+        onClose={() => updateRoot((r) => closeLeaf(r, node.id))}
+        canMerge={canMerge}
+        mergeTarget={false}
+        preview={null}
+        onPreview={() => undefined}
+      />
     );
-  };
-  return <div style={{ width: "100%", height: "100%" }}>{render(node)}</div>;
+  }
+  return node.direction === "row" ? (
+    <div
+      key={node.id}
+      style={{ display: "flex", flexDirection: "row", flex: "1 1 0", minWidth: 0, minHeight: 0 }}
+    >
+      <div style={{ flex: node.ratio, minWidth: 0, minHeight: 0, display: "flex" }}>
+        <LayoutTree node={node.first} root={root} updateRoot={updateRoot} />
+      </div>
+      <VSplitter onDrag={(dx, total) => updateRoot((r) => resizeSplit(r, node.id, dx / total))} />
+      <div style={{ flex: 1 - node.ratio, minWidth: 0, minHeight: 0, display: "flex" }}>
+        <LayoutTree node={node.second} root={root} updateRoot={updateRoot} />
+      </div>
+    </div>
+  ) : (
+    <div
+      key={node.id}
+      style={{ display: "flex", flexDirection: "column", flex: "1 1 0", minWidth: 0, minHeight: 0 }}
+    >
+      <div style={{ flex: node.ratio, minWidth: 0, minHeight: 0, display: "flex" }}>
+        <LayoutTree node={node.first} root={root} updateRoot={updateRoot} />
+      </div>
+      <HSplitter onDrag={(dy, total) => updateRoot((r) => resizeSplit(r, node.id, dy / total))} />
+      <div style={{ flex: 1 - node.ratio, minWidth: 0, minHeight: 0, display: "flex" }}>
+        <LayoutTree node={node.second} root={root} updateRoot={updateRoot} />
+      </div>
+    </div>
+  );
 }
 
 let wsUid = 0;
 const newWsId = () => `entro_ws_${++wsUid}`;
-
-// --- area-tree helpers (mirror the template's areas semantics) ----------------
-
-function splitAt(node: AreaNode, id: string, direction: "row" | "column"): AreaNode {
-  if (node.kind === "leaf") {
-    return node.id === id ? split(direction, leaf(node.type), leaf(node.type), 0.5) : node;
-  }
-  return { ...node, first: splitAt(node.first, id, direction), second: splitAt(node.second, id, direction) };
-}
-
-function mergeAt(node: AreaNode, id: string): AreaNode {
-  if (node.kind === "split") {
-    if (node.first.id === id) return node.second;
-    if (node.second.id === id) return node.first;
-    return { ...node, first: mergeAt(node.first, id), second: mergeAt(node.second, id) };
-  }
-  return node;
-}
-
-function closeAt(node: AreaNode, id: string): AreaNode {
-  return mergeAt(node, id);
-}
