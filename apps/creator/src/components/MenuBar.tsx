@@ -122,7 +122,8 @@ export function MenuBar(props: MenuBarProps) {
         title="ENTRO ATMOS"
         onClick={() => setOpenMenu(openMenu === "__app__" ? null : "__app__")}
       >
-        <img src="/brand/logo.png" alt="ENTRO ATMOS" className="menubar-logo" />
+        <img src="/brand/logo.png" alt="Entropia-Atmos" className="menubar-logo" />
+        <span className="menubar-title">Entropia-Atmos</span>
         {openMenu === "__app__" && (
           <div className="dropdown" onClick={(e) => e.stopPropagation()}>
             <div className="dropdown-item" onClick={() => { openSplash(); setOpenMenu(null); }}>Welcome Screen</div>

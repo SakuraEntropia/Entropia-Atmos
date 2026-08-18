@@ -147,6 +147,12 @@ export class PannerViewport {
       this.controls.target.copy(center);
     }
 
+    // Re-anchor the gizmo to the recreated objects (document edits rebuild
+    // the whole scene; the previous gizmoTarget referenced disposed objects).
+    const gizmoEntry = this.selectedId ? this.draggables.get(this.selectedId) : null;
+    this.gizmoTarget = gizmoEntry ?? null;
+    this.updateGizmo();
+
     // Imported triangle meshes (geometry prims with inline mesh data).
     const geometryPrims = document.layers.flatMap((layer) => layer.prims).filter((p) => p.type === "geometry");
     for (const prim of geometryPrims) {

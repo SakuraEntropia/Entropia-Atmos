@@ -165,7 +165,7 @@ export function EntroApp() {
 
   return (
     <div className="app" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      <Titlebar title={document?.name ? `${document.name}.audio_usd` : undefined} appName="ENTRO ATMOS" version={APP_VERSION} />
+      <Titlebar title={document?.name ? `${document.name}.audio_usd` : undefined} appName="Entropia-Atmos" version={APP_VERSION} />
       <MenuBar
         workspaces={workspaces}
         activeId={effectiveId}

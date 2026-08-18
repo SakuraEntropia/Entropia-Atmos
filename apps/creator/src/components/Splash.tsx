@@ -44,10 +44,13 @@ export function Splash() {
     <div className="splash-overlay">
       <div className="splash">
         <div className="splash-hero">
-          <img src="/brand/logo.png" alt="ENTRO ATMOS logo" className="splash-logo" />
-          <div className="splash-title">
-            <h1>ENTRO ATMOS</h1>
-            <span className="splash-badge">v{APP_VERSION}</span>
+          <div className="splash-hero-img" />
+          <div className="splash-hero-overlay">
+            <img src="/brand/logo.png" alt="Entropia-Atmos logo" className="splash-logo" />
+            <div className="splash-title">
+              <h1>Entropia-Atmos</h1>
+              <span className="splash-badge">v{APP_VERSION}</span>
+            </div>
           </div>
         </div>
         <div className="splash-columns">
