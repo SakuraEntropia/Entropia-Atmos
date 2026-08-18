@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCreatorStore } from "../state/sceneStore";
 import { startLivePreview, stopLivePreview, isLivePreviewOn } from "../preview/livePreview";
+import { setPlaybackBuffer, setPlaybackVolume } from "../preview/playback";
 
 export function Transport() {
   const document = useCreatorStore((s) => s.document);
@@ -50,66 +51,36 @@ export function Transport() {
     }
   }, [document, solver, maxOrder, rayBudget, lateDuration, logLine, setRenderStatus]);
 
+  // Decode the rendered WAV and hand it to the shared playback engine
+  // (the timeline owns play/stop/seek).
   const loadBuffer = useCallback(async () => {
-    if (!renderedWavPath) return null;
-    const resp = await fetch(`/api/file?path=${encodeURIComponent(renderedWavPath)}`);
-    if (!resp.ok) throw new Error(await resp.text());
-    const arrayBuffer = await resp.arrayBuffer();
-    const context = contextRef.current ?? new AudioContext();
-    contextRef.current = context;
-    return context.decodeAudioData(arrayBuffer);
-  }, [renderedWavPath]);
-
-  const play = useCallback(async () => {
+    if (!renderedWavPath) return;
     try {
-      if (!bufferRef.current) bufferRef.current = await loadBuffer();
-      const buffer = bufferRef.current;
-      if (!buffer) return;
-      const context = contextRef.current!;
-      await context.resume();
-      const source = context.createBufferSource();
-      source.buffer = buffer;
-      const gain = context.createGain();
-      gain.gain.value = volume;
-      source.connect(gain).connect(context.destination);
-      source.start();
-      sourceRef.current = source;
-      setPlaying(true);
-      const startedAt = context.currentTime;
-      const tick = () => {
-        if (!sourceRef.current) return;
-        setPosition(Math.min(buffer.duration, context.currentTime - startedAt));
-        requestAnimationFrame(tick);
-      };
-      tick();
-      source.onended = () => {
-        setPlaying(false);
-        setPosition(0);
-        sourceRef.current = null;
-      };
+      const resp = await fetch(`/api/file?path=${encodeURIComponent(renderedWavPath)}`);
+      if (!resp.ok) throw new Error(await resp.text());
+      const arrayBuffer = await resp.arrayBuffer();
+      const context = new AudioContext();
+      const decoded = await context.decodeAudioData(arrayBuffer);
+      void context.close();
+      setPlaybackBuffer(decoded);
     } catch (error) {
-      logLine(`playback failed: ${error instanceof Error ? error.message : error}`);
+      logLine(`playback load failed: ${error instanceof Error ? error.message : error}`);
     }
-  }, [loadBuffer, volume, logLine]);
-
-  const stop = useCallback(() => {
-    sourceRef.current?.stop();
-    sourceRef.current = null;
-    setPlaying(false);
-    setPosition(0);
-  }, []);
+  }, [renderedWavPath, logLine]);
 
   useEffect(() => {
-    if (bufferRef.current) bufferRef.current = null; // re-decode after re-render
-  }, [renderedWavPath]);
+    setPlaybackVolume(volume);
+  }, [volume]);
+
+  useEffect(() => {
+    void loadBuffer();
+  }, [loadBuffer]);
 
   return (
     <div className="transport">
       <button className="primary" disabled={!document || renderStatus === "rendering"} onClick={render}>
         {renderStatus === "rendering" ? "Rendering…" : "▶ Render binaural"}
       </button>
-      <button disabled={renderStatus !== "ready" || playing} onClick={play}>▶ Play</button>
-      <button disabled={!playing} onClick={stop}>■ Stop</button>
       <button
         className={live ? "primary" : ""}
         title="Run the engine in the browser: move objects and hear the result live"
@@ -128,9 +99,7 @@ export function Transport() {
         Vol
         <input type="range" min={0} max={1} step={0.01} value={volume} onChange={(e) => setVolume(Number(e.target.value))} />
       </label>
-      <span className="transport-time">
-        {position.toFixed(1)} s {renderStatus === "ready" ? "· stereo (binaural)" : ""}
-      </span>
+      <span className="transport-time">{renderStatus === "ready" ? "stereo (binaural) ready" : "render to enable playback"}</span>
     </div>
   );
 }

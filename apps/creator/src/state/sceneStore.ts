@@ -97,6 +97,9 @@ interface CreatorState {
   coordSpace: "global" | "local";
   setCoordSpace(space: "global" | "local"): void;
   openSplash(): void;
+  /** Timeline playhead position (seconds). */
+  playheadSeconds: number;
+  setPlayhead(seconds: number): void;
 }
 
 function stamp(): string {
@@ -195,6 +198,8 @@ export const useCreatorStore = create<CreatorState>((set, get) => ({
   coordSpace: "global",
   setCoordSpace: (coordSpace) => set({ coordSpace }),
   openSplash: () => set({ splashOpen: true }),
+  playheadSeconds: 0,
+  setPlayhead: (playheadSeconds) => set({ playheadSeconds }),
   toggleHidden: (id) =>
     set((s) => ({
       hiddenIds: s.hiddenIds.includes(id) ? s.hiddenIds.filter((h) => h !== id) : [...s.hiddenIds, id],

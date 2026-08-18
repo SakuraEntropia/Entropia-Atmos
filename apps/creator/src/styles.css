@@ -276,3 +276,29 @@ body {
 /* material as an object property */
 .scene-item-material { display: block; font-size: 10.5px; color: var(--color-text-secondary); margin-top: 1px; }
 .scene-item-material-select { margin-left: auto; background: var(--color-surface-2); border: 1px solid var(--color-border); color: var(--color-text); border-radius: 4px; font-size: 10.5px; max-width: 110px; }
+
+/* Blender-style timeline */
+.timeline {
+  display: flex; align-items: stretch; gap: 8px; height: 34px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-solid); padding: 2px 8px;
+}
+.timeline-controls { display: flex; align-items: center; gap: 2px; }
+.tl-btn { background: transparent; border: none; color: var(--color-text-secondary); cursor: pointer; padding: 2px 7px; border-radius: 4px; font-size: 13px; }
+.tl-btn:hover { background: var(--color-surface-2); color: var(--color-text); }
+.timeline-ruler { position: relative; flex: 1; min-width: 0; cursor: pointer; background: var(--color-surface-2); border-radius: 6px; overflow: hidden; }
+.timeline-tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--color-border); }
+.timeline-tick.major { width: 2px; background: var(--color-border-strong, var(--color-border)); }
+.timeline-label { position: absolute; top: 2px; left: 4px; font-size: 10px; color: var(--color-text-secondary); }
+.timeline-playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--color-primary); pointer-events: none; }
+.timeline-readout { display: flex; align-items: center; gap: 8px; }
+.tl-time { font-variant-numeric: tabular-nums; color: var(--color-text); min-width: 62px; }
+.tl-range { display: flex; align-items: center; gap: 4px; color: var(--color-text-secondary); }
+.tl-range input { width: 44px; background: var(--color-surface-2); border: 1px solid var(--color-border); color: var(--color-text); border-radius: 4px; padding: 1px 4px; font-size: 11px; }
+
+/* scrollable panels */
+.scene-panel, .asset-library, .inspector, .bake-panel { height: 100%; overflow-y: auto; }
+.asset-library { display: flex; flex-direction: column; }
+.asset-groups { flex: 1; overflow-y: auto; min-height: 0; }
+.inspector-body { overflow-y: auto; }
+.status-body { overflow-y: auto; }

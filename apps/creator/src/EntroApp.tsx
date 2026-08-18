@@ -42,6 +42,8 @@ import { BakePanel, DeliveryPanel } from "./components/StatusPanel";
 import { Transport } from "./components/Transport";
 import { MenuBar } from "./components/MenuBar";
 import { APP_VERSION } from "./version";
+import { Timeline } from "./components/Timeline";
+import { startPlayback, stopPlayback, useIsPlaying } from "./preview/playback";
 import { NodeEditor } from "./components/NodeEditor";
 import { AssetLibrary } from "./components/AssetLibrary";
 import { Splash } from "./components/Splash";
@@ -179,6 +181,7 @@ export function EntroApp() {
         onMove={moveWorkspace}
         onReorder={reorderWorkspace}
       />
+      <TimelineRow />
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
         <LayoutTree
           node={root}
@@ -270,3 +273,8 @@ function LayoutTree({
 
 let wsUid = 0;
 const newWsId = () => `entro_ws_${++wsUid}`;
+
+function TimelineRow() {
+  const playing = useIsPlaying();
+  return <Timeline onPlay={(from) => void startPlayback(from)} onStop={() => stopPlayback()} playing={playing} />;
+}

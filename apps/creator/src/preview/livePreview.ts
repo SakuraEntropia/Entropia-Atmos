@@ -134,6 +134,8 @@ export async function startLivePreview(): Promise<boolean> {
 
   const loop = context.createBufferSource();
   loop.buffer = buildLoop(context);
+  const loopDuration = loop.buffer.duration;
+  const startedAt = context.currentTime;
   loop.loop = true;
   loop.connect(convolverA);
   loop.connect(convolverB);
@@ -142,6 +144,7 @@ export async function startLivePreview(): Promise<boolean> {
   preview = { context, loop, convolvers: [convolverA, convolverB], gains: [gainA, gainB], active: 0, timer: 0, hash: sceneHash() };
   preview.timer = window.setInterval(async () => {
     const hash = sceneHash();
+    useCreatorStore.getState().setPlayhead((context.currentTime - startedAt) % loopDuration);
     if (hash !== preview?.hash) {
       preview!.hash = hash;
       const next = await bakeSceneIr();
