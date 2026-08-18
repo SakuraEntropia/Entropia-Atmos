@@ -117,6 +117,20 @@ export function MenuBar(props: MenuBarProps) {
 
   return (
     <div className="menubar" onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`menu-item app-logo-item ${openMenu === "__app__" ? "active" : ""}`}
+        title="Atmos"
+        onClick={() => setOpenMenu(openMenu === "__app__" ? null : "__app__")}
+      >
+        <img src="/brand/logo.png" alt="Atmos" className="menubar-logo" />
+        {openMenu === "__app__" && (
+          <div className="dropdown" onClick={(e) => e.stopPropagation()}>
+            <div className="dropdown-item" onClick={() => { openSplash(); setOpenMenu(null); }}>Welcome Screen</div>
+            <div className="dropdown-item" onClick={() => { window.open("https://github.com/SakuraEntropia/Entropia-Atmos", "_blank"); setOpenMenu(null); }}>GitHub Repository</div>
+            <div className="dropdown-item" onClick={() => { useCreatorStore.getState().openAbout(); setOpenMenu(null); }}>About Atmos</div>
+          </div>
+        )}
+      </div>
       <input
         ref={modelInput}
         type="file"
