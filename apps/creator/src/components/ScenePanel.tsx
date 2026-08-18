@@ -8,7 +8,6 @@ const SECTIONS: { type: PrimType; label: string; icon: string }[] = [
   { type: "emitter", label: "Emitters", icon: "◉" },
   { type: "listener", label: "Listeners", icon: "◎" },
   { type: "geometry", label: "Geometry", icon: "⬡" },
-  { type: "material", label: "Materials", icon: "▦" },
   { type: "environment", label: "Environments", icon: "≈" },
 ];
 
@@ -123,37 +122,70 @@ export function ScenePanel() {
               </button>
             )}
           </div>
-          {primsOf(section.type).map((prim) => (
-            <div
-              key={prim.id}
-              className={`scene-item ${selection?.type === section.type && selection.id === prim.id ? "selected" : ""}`}
-              onClick={() => select({ type: section.type, id: prim.id })}
-            >
-              <button
-                className="outliner-eye"
-                title={hiddenIds.includes(prim.id) ? "show in viewport" : "hide in viewport"}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleHidden(prim.id);
+          {section.type === "geometry" && document.room && (
+            <div className="scene-item">
+              <span className="scene-item-name">Room walls</span>
+              <select
+                className="scene-item-material-select"
+                value={String(document.room.wallMaterialId ?? "")}
+                title="Room wall material (property of the room surfaces)"
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  document.room!.wallMaterialId = e.target.value || undefined;
+                  useCreatorStore.setState({ document: { ...document } });
+                  logLine(`room walls → ${e.target.value || "default"}`);
                 }}
               >
-                {hiddenIds.includes(prim.id) ? "◇" : "👁"}
-              </button>
-              <span className="scene-item-name">{prim.name}</span>
-              <button
-                className="outliner-x"
-                title="delete"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  select({ type: section.type, id: prim.id });
-                  deleteSelection();
-                  logLine(`deleted ${section.type} '${prim.id}'`);
-                }}
-              >
-                ✕
-              </button>
+                <option value="">(default)</option>
+                {primsOf("material").map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
             </div>
-          ))}
+          )}
+          {primsOf(section.type).map((prim) => {
+            const materialName =
+              section.type === "geometry"
+                ? (() => {
+                    const materialId = prim.payload.materialId as string | undefined;
+                    return materialId ? primsOf("material").find((m) => m.id === materialId)?.name ?? materialId : "(no material)";
+                  })()
+                : null;
+            return (
+              <div
+                key={prim.id}
+                className={`scene-item ${selection?.type === section.type && selection.id === prim.id ? "selected" : ""}`}
+                onClick={() => select({ type: section.type, id: prim.id })}
+              >
+                <button
+                  className="outliner-eye"
+                  title={hiddenIds.includes(prim.id) ? "show in viewport" : "hide in viewport"}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleHidden(prim.id);
+                  }}
+                >
+                  {hiddenIds.includes(prim.id) ? "◇" : "👁"}
+                </button>
+                <span className="scene-item-name">
+                  {prim.name}
+                  {materialName !== null && <span className="scene-item-material">▦ {materialName}</span>}
+                </span>
+                <button
+                  className="outliner-x"
+                  title="delete"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    select({ type: section.type, id: prim.id });
+                    deleteSelection();
+                    logLine(`deleted ${section.type} '${prim.id}'`);
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            );
+          })}
           {primsOf(section.type).length === 0 && <div className="scene-item muted">— empty —</div>}
         </div>
       ))}

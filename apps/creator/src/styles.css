@@ -272,3 +272,7 @@ body {
 .splash-hero-overlay .splash-logo { width: 64px; height: 64px; }
 .splash-hero-overlay h1 { margin: 0; font-size: 24px; letter-spacing: 0.08em; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
 .splash-hero-overlay .splash-badge { color: #d7c9ff; border-color: rgba(255,255,255,0.25); }
+
+/* material as an object property */
+.scene-item-material { display: block; font-size: 10.5px; color: var(--color-text-secondary); margin-top: 1px; }
+.scene-item-material-select { margin-left: auto; background: var(--color-surface-2); border: 1px solid var(--color-border); color: var(--color-text); border-radius: 4px; font-size: 10.5px; max-width: 110px; }

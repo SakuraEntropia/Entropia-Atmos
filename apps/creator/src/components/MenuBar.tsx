@@ -77,7 +77,6 @@ export function MenuBar(props: MenuBarProps) {
       items: [
         { label: "Add Emitter", action: () => addPrim("emitter") },
         { label: "Add Listener", action: () => addPrim("listener") },
-        { label: "Add Material", action: () => addPrim("material") },
         { label: "Add Environment", action: () => addPrim("environment") },
         { separator: true, label: "" },
         { label: "Delete Selection", shortcut: "⌫", action: () => deleteSelected() },

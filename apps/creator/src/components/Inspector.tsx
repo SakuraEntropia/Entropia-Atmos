@@ -144,6 +144,10 @@ function MaterialEditor({ id }: { id: string }) {
   return (
     <div className="inspector-body">
       <h4>Acoustic Material — {prim.name}</h4>
+      <p className="muted">
+        assigned to:{" "}
+        {document?.layers.flatMap((l) => l.prims).filter((p) => p.type === "geometry" && p.payload.materialId === id).map((p) => p.name).join(", ") || "nothing yet"}
+      </p>
       <p className="muted">Per-band absorption (the Acoustic-BRDF surface).</p>
       {bands.map((band, i) => (
         <div key={i} className="band-row">
@@ -237,6 +241,30 @@ function SimulationControls() {
 }
 
 function GeometryEditor({ id }: { id: string }) {
+  const createMaterial = () => {
+    const state = useCreatorStore.getState();
+    const document = state.document;
+    if (!document) return;
+    const materialId = `m${Date.now().toString(36)}`;
+    document.layers[0].prims.push({
+      type: "material",
+      id: materialId,
+      name: `${document.name ?? "scene"}-material-${materialId.slice(-3)}`,
+      payload: {
+        bands: [
+          { centerHz: 500, lowHz: 354, highHz: 707, absorption: 0.1, scattering: 0.1, transmission: 0 },
+          { centerHz: 1000, lowHz: 707, highHz: 1414, absorption: 0.08, scattering: 0.1, transmission: 0 },
+          { centerHz: 2000, lowHz: 1414, highHz: 2828, absorption: 0.07, scattering: 0.1, transmission: 0 },
+          { centerHz: 4000, lowHz: 2828, highHz: 5657, absorption: 0.06, scattering: 0.1, transmission: 0 },
+        ],
+      },
+    });
+    useCreatorStore.setState({ document: { ...document } });
+    update("geometry", id, (p) => void (p.materialId = materialId));
+    state.select({ type: "material", id: materialId });
+    state.logLine(`created material '${materialId}' for geometry '${id}'`);
+  };
+
   const document = useCreatorStore((s) => s.document);
   const update = useCreatorStore((s) => s.updatePayload);
   const prim = selectedPrim(document, { type: "geometry", id });
@@ -249,17 +277,34 @@ function GeometryEditor({ id }: { id: string }) {
       <h4>Geometry — {prim.name}</h4>
       <Vec3Row label="Position" value={transform.position} onChange={(v) => update("geometry", id, (p) => setTransformPosition(p, v))} />
       <label className="field">
-        Material
+        Material (property of this object)
         <select
           value={String(prim.payload.materialId ?? "")}
-          onChange={(e) => update("geometry", id, (p) => void (p.materialId = e.target.value || undefined))}
+          onChange={(e) => {
+            if (e.target.value === "__new__") {
+              createMaterial();
+            } else {
+              update("geometry", id, (p) => void (p.materialId = e.target.value || undefined));
+            }
+          }}
         >
-          <option value="">(default wall)</option>
+          <option value="">(none — default wall)</option>
           {materialIds.map((mid) => (
             <option key={mid} value={mid}>{mid}</option>
           ))}
+          <option value="__new__">＋ New material…</option>
         </select>
       </label>
+      <button
+        className="mini-btn wide"
+        disabled={!prim.payload.materialId}
+        onClick={() => {
+          const materialId = String(prim.payload.materialId);
+          useCreatorStore.getState().select({ type: "material", id: materialId });
+        }}
+      >
+        ✎ Edit material nodes…
+      </button>
       <p className="muted">{mesh?.triangles ? `${mesh.triangles.length / 3} triangles — drag it in the 3D view to move it.` : "no mesh data"}</p>
     </div>
   );
