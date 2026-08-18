@@ -31,16 +31,25 @@ export function isPlaying(): boolean {
 
 export async function startPlayback(fromSeconds: number): Promise<void> {
   if (!buffer) return;
+  const buf = buffer;
   context ??= new AudioContext();
   await context.resume();
   stopPlayback(false);
   source = context.createBufferSource();
-  source.buffer = buffer;
+  source.buffer = buf;
   gain = context.createGain();
   gain.gain.value = volume;
   source.connect(gain).connect(context.destination);
-  const offset = Math.max(0, Math.min(fromSeconds, buffer.duration - 0.01));
+  const offset = Math.max(0, Math.min(fromSeconds, buf.duration - 0.01));
   source.start(0, offset);
+  const startCtxTime = context.currentTime;
+  const tick = () => {
+    if (!source) return;
+    const position = Math.min(buf.duration, offset + (context!.currentTime - startCtxTime));
+    useCreatorStore.getState().setPlayhead(position);
+    requestAnimationFrame(tick);
+  };
+  tick();
   source.onended = () => {
     source = null;
     useCreatorStore.getState().setPlayhead(0);

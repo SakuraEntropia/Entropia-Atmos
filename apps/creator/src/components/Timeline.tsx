@@ -16,6 +16,7 @@ export function Timeline({
   playing: boolean;
 }) {
   const playhead = useCreatorStore((s) => s.playheadSeconds);
+  const logLine = useCreatorStore((s) => s.logLine);
   const setPlayhead = useCreatorStore((s) => s.setPlayhead);
   const [rangeStart, setRangeStart] = useState(0);
   const [rangeEnd, setRangeEnd] = useState(DURATION);
@@ -34,7 +35,15 @@ export function Timeline({
     <div className="timeline">
       <div className="timeline-controls">
         <button className="tl-btn" title="Jump to start" onClick={() => setPlayhead(rangeStart)}>⏮</button>
-        <button className="tl-btn" title={playing ? "Pause" : "Play"} onClick={() => (playing ? onStop() : onPlay(playhead))}>
+        <button
+          className="tl-btn"
+          title={playing ? "Pause" : "Play"}
+          onClick={() => {
+            if (playing) onStop();
+            else if (useCreatorStore.getState().renderedWavPath) onPlay(playhead);
+            else logLine("render a binaural WAV first (▶ Render binaural)");
+          }}
+        >
           {playing ? "⏸" : "⏵"}
         </button>
         <button className="tl-btn" title="Stop" onClick={onStop}>⏹</button>

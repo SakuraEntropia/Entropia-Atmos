@@ -359,19 +359,32 @@ export class PannerViewport {
   }
 
   private pickGizmo(event: PointerEvent): { mode: "translate" | "rotate" | "scale"; axis: THREE.Vector3 } | null {
+    return this.pickGizmoHit(event)?.part ?? null;
+  }
+
+  private pickGizmoHit(event: PointerEvent): { part: { mode: "translate" | "rotate" | "scale"; axis: THREE.Vector3 }; distance: number } | null {
     if (!this.gizmo.visible) return null;
     const rect = this.canvas.getBoundingClientRect();
     this.pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(this.pointer, this.camera);
     const hits = this.raycaster.intersectObjects(this.gizmoParts.map((p) => p.mesh), false);
     if (hits.length === 0) return null;
-    const mesh = hits[0].object as THREE.Mesh;
+    const hit = hits[0];
+    const mesh = hit.object as THREE.Mesh;
     const part = this.gizmoParts.find((p) => p.mesh === mesh);
     if (!part) return null;
     const axis = this.coordSpace === "local" && this.gizmoTarget
       ? part.axis.clone().applyQuaternion(this.gizmoTarget.object.quaternion).normalize()
       : part.axis.clone();
-    return { mode: part.mode, axis };
+    return { part: { mode: part.mode, axis }, distance: hit.distance };
+  }
+
+  private pickObjectDistance(event: PointerEvent): number | null {
+    const rect = this.canvas.getBoundingClientRect();
+    this.pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const hits = this.raycaster.intersectObjects([...this.draggables.values()].map((d) => d.object), true);
+    return hits.length > 0 ? hits[0].distance : null;
   }
 
   private rayToPointerPlane(event: PointerEvent, plane: THREE.Plane): THREE.Vector3 | null {
@@ -401,8 +414,13 @@ export class PannerViewport {
 
   private onPointerDown = (event: PointerEvent): void => {
     this.downAt = { x: event.clientX, y: event.clientY };
-    // 1) Gizmo handles win (translate axis / rotate ring / scale axis).
-    const gizmoPart = this.pickGizmo(event);
+    // 1) Pick BOTH the scene object and the gizmo; whichever is nearer to
+    // the camera wins, so the gizmo never steals object selection when the
+    // object is in front of (or beside) the gizmo handles.
+    const gizmoHit = this.pickGizmoHit(event);
+    const objectDistance = this.pickObjectDistance(event);
+    const gizmoWins = gizmoHit !== null && (objectDistance === null || gizmoHit.distance < objectDistance);
+    const gizmoPart = gizmoWins ? gizmoHit!.part : null;
     if (gizmoPart && this.gizmoTarget && this.tool !== "select") {
       this.controls.enabled = false;
       this.dragging = null;
