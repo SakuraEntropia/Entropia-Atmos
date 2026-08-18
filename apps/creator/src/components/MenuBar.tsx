@@ -303,7 +303,7 @@ function TabBar({
       {ctx && (
         <>
           <div className="tab-menu-overlay" onClick={() => setCtx(null)} />
-          <div className="tab-menu" style={{ left: ctx.x, top: ctx.y }}>
+          <div className="tab-menu fixed" style={{ left: ctx.x, top: ctx.y }}>
             <div className="tab-menu-item" onClick={() => { const name = window.prompt("Workspace name", workspaces.find((w) => w.id === ctx.id)?.name ?? ""); if (name) onRename(ctx.id, name); setCtx(null); }}>
               Rename
             </div>

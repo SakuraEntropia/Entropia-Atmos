@@ -30,6 +30,7 @@ import {
   closeLeaf,
   resizeSplit,
   countLeaves,
+  siblingNodeId,
   type AreaNode,
   type WorkspaceInstance,
 } from "entropia-template-ui";
@@ -184,6 +185,8 @@ export function EntroApp() {
   );
 }
 
+type DragPreview = { mode: "split-row" | "split-column" | "merge"; x: number; y: number } | null;
+
 function LayoutTree({
   node,
   root,
@@ -193,10 +196,14 @@ function LayoutTree({
   root: AreaNode;
   updateRoot: (fn: (r: AreaNode) => AreaNode) => void;
 }) {
+  const [preview, setPreview] = useState<DragPreview | null>(null);
+  const [mergeTargetId, setMergeTargetId] = useState<string | null>(null);
   const canMerge = countLeaves(root) > 1;
+
   if (node.kind === "leaf") {
     return (
       <PanelSlot
+        key={node.id}
         id={node.id}
         type={node.type}
         onType={(type) => updateRoot((r) => setLeafType(r, node.id, type))}
@@ -205,9 +212,12 @@ function LayoutTree({
         onMerge={() => updateRoot((r) => mergeLeaf(r, node.id))}
         onClose={() => updateRoot((r) => closeLeaf(r, node.id))}
         canMerge={canMerge}
-        mergeTarget={false}
-        preview={null}
-        onPreview={() => undefined}
+        mergeTarget={mergeTargetId === node.id}
+        preview={preview}
+        onPreview={(p) => {
+          setPreview(p);
+          setMergeTargetId(p?.mode === "merge" ? siblingNodeId(root, node.id) : null);
+        }}
       />
     );
   }
