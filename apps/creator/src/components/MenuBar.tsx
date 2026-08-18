@@ -100,8 +100,9 @@ export function MenuBar(props: MenuBarProps) {
     {
       label: "Help",
       items: [
+        { label: "Welcome Screen", action: () => openSplash() },
         { label: "GitHub Repository", action: () => window.open("https://github.com/SakuraEntropia/Entropia-Atmos", "_blank") },
-        { label: "About ENTRO ATMOS", action: () => window.alert("ENTRO ATMOS — AI + Graphics inspired spatial audio engine\nBlender for spatial audio.") },
+        { label: "About Atmos", action: () => useCreatorStore.getState().openAbout() },
       ],
     },
   ];
@@ -116,21 +117,6 @@ export function MenuBar(props: MenuBarProps) {
 
   return (
     <div className="menubar" onClick={(e) => e.stopPropagation()}>
-      <div
-        className={`menu-item app-logo-item ${openMenu === "__app__" ? "active" : ""}`}
-        title="ENTRO ATMOS"
-        onClick={() => setOpenMenu(openMenu === "__app__" ? null : "__app__")}
-      >
-        <img src="/brand/logo.png" alt="Entropia-Atmos" className="menubar-logo" />
-        <span className="menubar-title">Entropia-Atmos</span>
-        {openMenu === "__app__" && (
-          <div className="dropdown" onClick={(e) => e.stopPropagation()}>
-            <div className="dropdown-item" onClick={() => { openSplash(); setOpenMenu(null); }}>Welcome Screen</div>
-            <div className="dropdown-item" onClick={() => { window.open("https://github.com/SakuraEntropia/Entropia-Atmos", "_blank"); setOpenMenu(null); }}>GitHub Repository</div>
-            <div className="dropdown-item" onClick={() => { window.alert("ENTRO ATMOS — AI + Graphics inspired spatial audio engine\nBlender for spatial audio."); setOpenMenu(null); }}>About ENTRO ATMOS</div>
-          </div>
-        )}
-      </div>
       <input
         ref={modelInput}
         type="file"

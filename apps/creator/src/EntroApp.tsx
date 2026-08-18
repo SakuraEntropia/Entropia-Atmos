@@ -43,6 +43,7 @@ import { Transport } from "./components/Transport";
 import { MenuBar } from "./components/MenuBar";
 import { APP_VERSION } from "./version";
 import { TimelinePanel } from "./components/Timeline";
+import { AboutPanel } from "./components/AboutPanel";
 import { NodeEditor } from "./components/NodeEditor";
 import { AssetLibrary } from "./components/AssetLibrary";
 import { Splash } from "./components/Splash";
@@ -168,7 +169,7 @@ export function EntroApp() {
 
   return (
     <div className="app" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      <Titlebar title={document?.name ? `${document.name}.audio_usd` : undefined} appName="Entropia-Atmos" version={APP_VERSION} />
+      <Titlebar title={document?.name ? `${document.name}.audio_usd` : undefined} appName="Atmos" version={APP_VERSION} />
       <MenuBar
         workspaces={workspaces}
         activeId={effectiveId}
@@ -198,6 +199,7 @@ export function EntroApp() {
       </div>
       <ToastStack />
       {splashOpen && <Splash />}
+      <AboutPanel />
     </div>
   );
 }

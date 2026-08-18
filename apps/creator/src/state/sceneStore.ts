@@ -97,6 +97,10 @@ interface CreatorState {
   coordSpace: "global" | "local";
   setCoordSpace(space: "global" | "local"): void;
   openSplash(): void;
+  /** About dialog visibility. */
+  aboutOpen: boolean;
+  openAbout(): void;
+  closeAbout(): void;
   /** Timeline playhead position (seconds). */
   playheadSeconds: number;
   setPlayhead(seconds: number): void;
@@ -198,6 +202,9 @@ export const useCreatorStore = create<CreatorState>((set, get) => ({
   coordSpace: "global",
   setCoordSpace: (coordSpace) => set({ coordSpace }),
   openSplash: () => set({ splashOpen: true }),
+  aboutOpen: false,
+  openAbout: () => set({ aboutOpen: true }),
+  closeAbout: () => set({ aboutOpen: false }),
   playheadSeconds: 0,
   setPlayhead: (playheadSeconds) => set({ playheadSeconds }),
   toggleHidden: (id) =>
