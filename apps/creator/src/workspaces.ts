@@ -10,55 +10,59 @@ export const ENTRO_PRESETS: WorkspacePreset[] = [
     label: "Layout",
     category: "ENTRO",
     description: "Scene construction: scene graph + 3D panner + inspector.",
+    // Blender "Layout": Outliner | 3D Viewport + Properties, Timeline below.
     build: () => {
-      const sceneCol = split("column", leaf("nodes"), leaf("files"), 0.62);
-      const left = split("column", sceneCol, leaf("inspector"), 0.62);
-      const main = split("row", left, leaf("canvas"), 0.28);
-      return split("column", main, status(), 0.82);
+      const left = split("column", leaf("nodes"), leaf("files"), 0.62);
+      const right = leaf("inspector");
+      const main = split("row", split("row", left, leaf("canvas"), 0.28), right, 0.78);
+      return split("column", main, leaf("timeline"), 0.82);
     },
   },
   {
     id: "shading",
     label: "Shading",
     category: "ENTRO",
-    description: "Acoustic materials: scene graph + node editor + canvas.",
+    description: "Blender Shading layout: viewport top-left, node editor bottom-left, outliner top-right, properties bottom-right.",
     build: () => {
-      const left = split("column", leaf("nodes"), leaf("shader"), 0.55);
-      const main = split("row", left, leaf("canvas"), 0.28);
-      return split("column", main, status(), 0.82);
+      // Blender "Shading": Viewport | Outliner over Shader Editor | Properties.
+      const left = split("column", leaf("canvas"), leaf("shader"), 0.4);
+      const right = split("column", leaf("nodes"), leaf("inspector"), 0.45);
+      return split("column", split("row", left, right, 0.72), leaf("timeline"), 0.8);
     },
   },
   {
     id: "simulation",
     label: "Simulation",
     category: "ENTRO",
-    description: "Solver runs: inspector up top, taller log below.",
+    description: "Blender Rendering layout: big viewport + results/status column.",
     build: () => {
-      const left = split("column", leaf("inspector"), leaf("nodes"), 0.45);
-      const main = split("row", left, leaf("canvas"), 0.24);
-      return split("column", main, status(), 0.7);
+      // Blender "Rendering": Viewport + image/results editor beside it.
+      const right = split("column", leaf("inspector"), leaf("status"), 0.55);
+      const main = split("row", leaf("canvas"), right, 0.72);
+      return split("column", main, leaf("timeline"), 0.82);
     },
   },
   {
     id: "bake",
     label: "Bake",
     category: "ENTRO",
-    description: "AudioGS: bake panel + node editor + big log for LOD tables.",
+    description: "AudioGS baking: outliner + bake panel + big log for LOD tables.",
     build: () => {
-      const left = split("column", leaf("nodes"), leaf("shader"), 0.6);
-      const main = split("row", left, leaf("canvas"), 0.26);
-      return split("column", main, status(), 0.68);
+      const left = split("column", leaf("nodes"), leaf("files"), 0.6);
+      const right = split("column", leaf("inspector"), leaf("status"), 0.5);
+      const main = split("row", split("row", left, leaf("canvas"), 0.3), right, 0.76);
+      return split("column", main, leaf("timeline"), 0.78);
     },
   },
   {
     id: "delivery",
     label: "Delivery",
     category: "ENTRO",
-    description: "Export: scene + canvas + transport-heavy bottom bar.",
+    description: "Export: outliner + viewport + properties + timeline.",
     build: () => {
-      const left = split("column", leaf("nodes"), leaf("inspector"), 0.7);
-      const main = split("row", left, leaf("canvas"), 0.24);
-      return split("column", main, status(), 0.66);
+      const left = split("column", leaf("nodes"), leaf("files"), 0.7);
+      const main = split("row", split("row", left, leaf("canvas"), 0.26), leaf("inspector"), 0.78);
+      return split("column", main, leaf("timeline"), 0.82);
     },
   },
 ];

@@ -279,7 +279,7 @@ body {
 
 /* Blender-style timeline */
 .timeline {
-  display: flex; align-items: stretch; gap: 8px; height: 34px;
+  display: flex; align-items: stretch; gap: 8px; height: 100%;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface-solid); padding: 2px 8px;
 }

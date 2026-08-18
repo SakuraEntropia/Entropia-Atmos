@@ -2,6 +2,7 @@
  * playback controls, loop range and current-time readout. */
 import { useRef, useState } from "react";
 import { useCreatorStore } from "../state/sceneStore";
+import { startPlayback, stopPlayback, useIsPlaying } from "../preview/playback";
 
 const DURATION = 10; // seconds shown on the ruler
 
@@ -65,4 +66,10 @@ export function Timeline({
       </div>
     </div>
   );
+}
+
+/** Timeline as a workspace PANEL (self-contained playback wiring). */
+export function TimelinePanel() {
+  const playing = useIsPlaying();
+  return <Timeline onPlay={(from) => void startPlayback(from)} onStop={() => stopPlayback()} playing={playing} />;
 }
