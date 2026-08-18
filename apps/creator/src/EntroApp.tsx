@@ -89,6 +89,7 @@ export function EntroApp() {
   );
   const [activeId, setActiveId] = useState<string | null>(null);
   const [preview, setPreview] = useState<DragPreview>(null);
+  const [previewLeafId, setPreviewLeafId] = useState<string | null>(null);
   const [mergeTargetId, setMergeTargetId] = useState<string | null>(null);
 
   const effectiveId = activeId ?? workspaces[0]?.id ?? "";
@@ -184,9 +185,11 @@ export function EntroApp() {
           root={root}
           updateRoot={updateActiveRoot}
           preview={preview}
+          previewLeafId={previewLeafId}
           mergeTargetId={mergeTargetId}
           onPreview={(leafId, p) => {
             setPreview(p);
+            setPreviewLeafId(p ? leafId : null);
             setMergeTargetId(p?.mode === "merge" ? siblingNodeId(root, leafId) : null);
           }}
         />
@@ -204,6 +207,7 @@ function LayoutTree({
   root,
   updateRoot,
   preview,
+  previewLeafId,
   mergeTargetId,
   onPreview,
 }: {
@@ -211,6 +215,7 @@ function LayoutTree({
   root: AreaNode;
   updateRoot: (fn: (r: AreaNode) => AreaNode) => void;
   preview: DragPreview;
+  previewLeafId: string | null;
   mergeTargetId: string | null;
   onPreview: (leafId: string, p: DragPreview) => void;
 }) {
@@ -229,7 +234,7 @@ function LayoutTree({
         onClose={() => updateRoot((r) => closeLeaf(r, node.id))}
         canMerge={canMerge}
         mergeTarget={mergeTargetId === node.id}
-        preview={preview}
+        preview={previewLeafId === node.id ? preview : null}
         onPreview={(p) => onPreview(node.id, p)}
       />
     );
@@ -240,11 +245,11 @@ function LayoutTree({
       style={{ display: "flex", flexDirection: "row", flex: "1 1 0", minWidth: 0, minHeight: 0 }}
     >
       <div style={{ flex: node.ratio, minWidth: 0, minHeight: 0, display: "flex" }}>
-        <LayoutTree node={node.first} root={root} updateRoot={updateRoot} preview={preview} mergeTargetId={mergeTargetId} onPreview={onPreview} />
+        <LayoutTree node={node.first} root={root} updateRoot={updateRoot} preview={preview} previewLeafId={previewLeafId} mergeTargetId={mergeTargetId} onPreview={onPreview} />
       </div>
       <VSplitter onDrag={(dx, total) => updateRoot((r) => resizeSplit(r, node.id, dx / total))} />
       <div style={{ flex: 1 - node.ratio, minWidth: 0, minHeight: 0, display: "flex" }}>
-        <LayoutTree node={node.second} root={root} updateRoot={updateRoot} preview={preview} mergeTargetId={mergeTargetId} onPreview={onPreview} />
+        <LayoutTree node={node.second} root={root} updateRoot={updateRoot} preview={preview} previewLeafId={previewLeafId} mergeTargetId={mergeTargetId} onPreview={onPreview} />
       </div>
     </div>
   ) : (
@@ -253,11 +258,11 @@ function LayoutTree({
       style={{ display: "flex", flexDirection: "column", flex: "1 1 0", minWidth: 0, minHeight: 0 }}
     >
       <div style={{ flex: node.ratio, minWidth: 0, minHeight: 0, display: "flex" }}>
-        <LayoutTree node={node.first} root={root} updateRoot={updateRoot} preview={preview} mergeTargetId={mergeTargetId} onPreview={onPreview} />
+        <LayoutTree node={node.first} root={root} updateRoot={updateRoot} preview={preview} previewLeafId={previewLeafId} mergeTargetId={mergeTargetId} onPreview={onPreview} />
       </div>
       <HSplitter onDrag={(dy, total) => updateRoot((r) => resizeSplit(r, node.id, dy / total))} />
       <div style={{ flex: 1 - node.ratio, minWidth: 0, minHeight: 0, display: "flex" }}>
-        <LayoutTree node={node.second} root={root} updateRoot={updateRoot} preview={preview} mergeTargetId={mergeTargetId} onPreview={onPreview} />
+        <LayoutTree node={node.second} root={root} updateRoot={updateRoot} preview={preview} previewLeafId={previewLeafId} mergeTargetId={mergeTargetId} onPreview={onPreview} />
       </div>
     </div>
   );
